@@ -7,7 +7,19 @@ await db.exec(`create role anon; create role authenticated; create schema auth;
   create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
   insert into auth.users values ('00000000-0000-0000-0000-000000000001','operator@example.test',now()),('00000000-0000-0000-0000-000000000002','visitor@example.test',now());`);
 const migrations=new URL('../migrations/',import.meta.url);
-for(const name of (await readdir(migrations)).filter(name=>name.endsWith('.sql')).sort()) await db.exec(await readFile(new URL(name,migrations),'utf8'));
+let legacyReceipt;
+const legacyArgs=['90000000-0000-4000-8000-000000000001','hopungmi-2kg',1,'GOGUMA','기존 주문','01011112222','서울 중구 세종대로 110','','',11500,true];
+for(const name of (await readdir(migrations)).filter(name=>name.endsWith('.sql')).sort()) {
+ if(name.includes('percentage_discount')) {
+  await db.exec('update public.farmer_inventory set available_grams=100000;');
+  legacyReceipt=(await db.query('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result',legacyArgs)).rows[0].result;
+ }
+ await db.exec(await readFile(new URL(name,migrations),'utf8'));
+}
+assert.equal(legacyReceipt.total,11500);
+assert.deepEqual((await db.query('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result',legacyArgs)).rows[0].result,legacyReceipt);
+assert.equal((await db.query('select total from public.farmer_orders where request_id=$1',[legacyArgs[0]])).rows[0].total,11500);
+
 await db.exec(`insert into farmer_private.admin_emails(email) values('operator@example.test'); update public.farmer_inventory set available_grams=10000;`);
 const rpc = async (sql,params=[]) => (await db.query(sql,params)).rows[0]?.result;
 const admin=async()=>db.exec(`reset role;select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);set role authenticated;`);
@@ -16,7 +28,11 @@ const expectError=async(fn,text)=>assert.rejects(fn,e=>e.message.includes(text))
 const orderArgs=(id,qty=1,total=21500)=>[id,'hopungmi-5kg',qty,'GOGUMA','검증용 주문','01000000000','테스트 주소 123','','',total,true];
 const submit=args=>rpc('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result',args);
 await anon();
-assert.equal((await rpc(`select public.farmer_quote('hopungmi-5kg',3,'goguma') as result`)).total,61500);
+assert.equal((await rpc(`select public.farmer_quote('hopungmi-5kg',3,'goguma') as result`)).total,57500);
+for(const [product,qty,discount,total] of [['hopungmi-2kg',1,1000,12500],['hopungmi-5kg',1,2000,21500],['hopungmi-2kg',3,3000,30500],['hopungmi-5kg',3,6000,57500]]) {
+ const q=await rpc('select public.farmer_quote($1,$2,$3) as result',[product,qty,'GOGUMA']);assert.equal(q.discount_amount,discount);assert.equal(q.discount_percent,10);assert.equal(q.total,total);
+}
+assert.equal((await rpc("select public.farmer_quote('hopungmi-2kg',1,'') as result")).total,13500);
 await expectError(()=>db.query('select * from public.farmer_orders'),'permission denied');
 await expectError(()=>db.query('select public.farmer_admin_summary()'),'permission denied');
 await expectError(()=>db.query("select public.farmer_quote('hopungmi-5kg',0,'')"),'수량');
@@ -24,9 +40,9 @@ await expectError(()=>db.query("select public.farmer_quote('hopungmi-5kg',1,'INV
 const request='10000000-0000-0000-0000-000000000001';
 const a=await submit(orderArgs(request));assert.equal(a.total,21500);
 assert.deepEqual(await submit(orderArgs(request)),a);
-await expectError(()=>submit(orderArgs(request,2,41500)),'이미 사용');
+await expectError(()=>submit(orderArgs(request,2,39500)),'이미 사용');
 await expectError(()=>submit(orderArgs('10000000-0000-0000-0000-000000000002',1,1)),'판매 금액');
-const b=await submit(orderArgs('10000000-0000-0000-0000-000000000003',2,41500));
+const b=await submit(orderArgs('10000000-0000-0000-0000-000000000003',2,39500));
 await admin();
 assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,10);
 let orders=(await rpc('select public.farmer_admin_orders() as result')).orders;
@@ -54,28 +70,28 @@ await adjust();await adjust();assert.equal((await rpc('select public.farmer_admi
 await db.exec(`reset role;select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);set role authenticated;`);
 await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 await expectError(()=>db.query('select * from public.farmer_orders'),'permission denied');
-// Multi-destination checkout: one discount, per-destination shipping and atomic retry.
+// Multi-destination checkout: percentage discount, per-destination shipping and atomic retry.
 await db.exec(`reset role;update public.farmer_inventory set available_grams=100000;`);
 await anon();
 const delivery=(product_id,quantity,name='받는 분')=>({product_id,quantity,recipient_name:name,recipient_phone:'010-1111-2222',postal_code:'04524',address:'서울 중구 세종대로 110',address_detail:'검증용',memo:''});
 const ds=[delivery('hopungmi-2kg',1),delivery('hopungmi-5kg',2,'다른 받는 분')];
 const quote=await rpc('select public.farmer_quote_batch($1,$2) as result',[JSON.stringify(ds),'GOGUMA']);
-assert.equal(quote.total,55000);assert.equal(quote.shipping_fee,7000);assert.equal(quote.discount_amount,2000);assert.equal(quote.weight_grams,12000);
-const batch=(id,items=ds,total=55000)=>rpc('select public.farmer_submit_batch($1,$2,$3,$4,$5,$6,$7) as result',[id,'주문자','01012345678',JSON.stringify(items),'GOGUMA',total,true]);
+assert.equal(quote.total,52000);assert.equal(quote.shipping_fee,7000);assert.equal(quote.discount_amount,5000);assert.equal(quote.weight_grams,12000);assert.deepEqual(quote.deliveries.map(d=>d.discount_amount),[1000,4000]);assert.equal(quote.discount_percent,10);
+const batch=(id,items=ds,total=52000)=>rpc('select public.farmer_submit_batch($1,$2,$3,$4,$5,$6,$7) as result',[id,'주문자','01012345678',JSON.stringify(items),'GOGUMA',total,true]);
 const bid='40000000-0000-0000-0000-000000000001';
-const receipt=await batch(bid);assert.equal(receipt.orders.length,2);assert.equal(receipt.total,55000);assert.deepEqual(await batch(bid),receipt);
+const receipt=await batch(bid);assert.equal(receipt.orders.length,2);assert.equal(receipt.total,52000);assert.deepEqual(await batch(bid),receipt);
 await expectError(()=>batch(bid,[ds[0],{...ds[1],postal_code:'12345'}]),'이미 사용');
 await expectError(()=>batch('40000000-0000-0000-0000-000000000002',[ds[0],{...ds[1],postal_code:''}]),'우편번호');
 await expectError(()=>batch('40000000-0000-0000-0000-000000000003',ds,1),'판매 금액');
 await admin();
 let batches=(await rpc('select public.farmer_admin_orders() as result')).orders.filter(o=>o.batch_id);
-assert.equal(batches.length,2);assert.equal(batches[0].postal_code,'04524');assert.equal(batches[0].recipient_phone,'01011112222');
+assert.equal(batches.length,2);assert.equal(batches.reduce((n,o)=>n+o.total,0),52000);assert.equal(batches.reduce((n,o)=>n+o.discount_amount,0),5000);assert.ok(batches.every(o=>o.status==='pending'));assert.equal(batches[0].postal_code,'04524');assert.equal(batches[0].recipient_phone,'01011112222');
 assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,100);
 await change(batches[0].id,'confirmed',1,'40000000-0000-0000-0000-000000000004');
 assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,100-batches[0].weight_grams/1000);
 await anon();await batch('40000000-0000-0000-0000-000000000005');
 await expectError(()=>db.query('select * from farmer_private.order_batches'),'permission denied');
-console.log('PASS: multiple recipients/postcodes, one discount, atomic failure, batch retry, repeat customer orders and independent fulfillment.');
+console.log('PASS: multiple recipients/postcodes, percentage discount, atomic failure, batch retry, repeat customer orders and independent fulfillment.');
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 console.log('PASS: private data access, server prices, idempotency, stock deduction/restoration, stock shortage, stale edits, shipping/delivery, verified admin allowlist.');

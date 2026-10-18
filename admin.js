@@ -3,7 +3,7 @@
   const $ = (id) => document.getElementById(id),
     api = window.FarmerAPI;
   const statuses = {
-    pending: "접수",
+    pending: "입금 대기",
     confirmed: "확정 · 발송 대기",
     shipped: "배송 중",
     delivered: "배송 완료",
@@ -233,7 +233,7 @@
     const choices =
       {
         pending: [
-          ["confirmed", "주문 확정"],
+          ["confirmed", "입금 확인 · 주문 확정"],
           ["cancelled", "주문 취소"],
         ],
         confirmed: [
@@ -271,7 +271,7 @@
     }
     const prompt =
       status === "confirmed"
-        ? `${o.order_number}를 확정하고 재고 ${number(o.weight_grams / 1000)}kg을 차감할까요?`
+        ? `입금을 확인하셨나요? ${o.order_number}를 확정하고 재고 ${number(o.weight_grams / 1000)}kg을 차감할까요?`
         : status === "cancelled"
           ? `${o.order_number}를 취소할까요?`
           : status === "shipped"

@@ -7,3 +7,5 @@
 node_modules/
 work/
 *.log
+supabase/.temp/
+payment-config.js

@@ -83,7 +83,11 @@
         ),
       amount =
         q?.discount_amount ??
-        (discount ? Math.min(subtotal, discount.amount) : 0),
+        (discount
+          ? discount.percent
+            ? lines.reduce((sum, d) => sum + Math.floor((products.find((p) => p.id === d.product_id)?.price || 0) * d.quantity * discount.percent / 100), 0)
+            : Math.min(subtotal, discount.amount)
+          : 0),
       fee = q?.shipping_fee ?? cards().length * shipping;
     message("subtotal-amount", valid ? money(subtotal) : "—");
     message("shipping-label", `배송비 · ${cards().length}곳`);
@@ -101,8 +105,9 @@
     revision++;
     prepared = null;
     receipt = null;
+    $("payment-guide").hidden = true;
+    message("payment-amount", "");
     $("submit-order").disabled = true;
-    $("copy-button").disabled = true;
     message("order-status", "");
     if (!$("summary-panel").hidden) {
       $("stale-note").hidden = false;
@@ -361,11 +366,11 @@
         p_code: normalized,
       });
       if (version !== revision) return;
-      discount = { code: q.discount_code, amount: q.discount_amount };
+      discount = { code: q.discount_code, amount: q.discount_amount, percent: q.discount_percent || 0 };
       code.value = q.discount_code;
       message(
         "discount-status",
-        `${q.discount_code} · 전체 주문 ${money(q.discount_amount)} 할인 적용`,
+        `${q.discount_code} · ${q.discount_percent ? q.discount_percent + "%" : money(q.discount_amount)} 할인 적용`,
       );
       $("remove-discount").hidden = false;
       totals(q);
@@ -410,7 +415,6 @@
     form
       .querySelectorAll("input,select,textarea,button")
       .forEach((el) => (el.disabled = value));
-    $("edit-button").disabled = value;
     if (!value) refreshCards();
   }
   form.addEventListener("submit", async (e) => {
@@ -451,13 +455,13 @@
           `상품: ${q.deliveries[i].product_name} × ${d.quantity}개`,
           `주소: (${d.postal_code}) ${d.address} ${d.address_detail}`.trim(),
           `배송 메모: ${d.memo || "없음"}`,
-          `배송지별 금액: ${money(q.deliveries[i].total)}${i === 0 && q.discount_amount ? " (전체 할인 포함)" : ""}`,
+          `배송지별 금액: ${money(q.deliveries[i].total)}${q.deliveries[i].discount_amount ? " (할인 포함)" : ""}`,
         ]),
         "",
         `상품 금액 합계: ${money(q.subtotal)}`,
         ...(q.discount_code
           ? [
-              `할인코드: ${q.discount_code} · −${money(q.discount_amount)} (전체 주문 1회)`,
+              `할인코드: ${q.discount_code} · −${money(q.discount_amount)}`,
             ]
           : []),
         `배송비: ${money(q.shipping_fee)} (${payload.p_deliveries.length}곳)`,
@@ -466,14 +470,12 @@
       $("summary-panel").hidden = false;
       $("submit-order").hidden = false;
       $("submit-order").disabled = false;
-      $("copy-button").disabled = false;
       $("stale-note").hidden = true;
       message("summary-heading", "모든 배송지를 확인해 주세요.");
       message(
         "summary-guide",
-        `${payload.p_deliveries.length}곳으로 보내는 주문입니다. 확인 후 ‘주문 접수하기’를 눌러 주세요.`,
+        "주문 내용을 확인한 뒤 접수해 주세요.",
       );
-      message("copy-status", "");
       message("order-status", "");
       $("summary-heading").focus({ preventScroll: true });
       $("summary-panel").scrollIntoView({
@@ -511,15 +513,15 @@
       receipt = result;
       message(
         "summary-heading",
-        `${result.orders.length}곳의 주문이 접수되었습니다.`,
+        "주문서가 접수되었습니다.",
       );
       message(
         "summary-guide",
-        `총 ${money(result.total)} · 배송지별 주문번호를 확인해 주세요.`,
+        "입금까지 완료해야 주문이 완료됩니다.",
       );
       message(
         "order-status",
-        "판매자가 주문을 확인한 뒤 확정합니다. 결제는 별도 안내를 따라 주세요.",
+        "입금 확인 후 주문을 확정합니다.",
       );
       $("summary-text").value =
         result.orders
@@ -527,6 +529,18 @@
           .join("\n") +
         "\n\n" +
         $("summary-text").value;
+      const payment = window.FARMER_PAYMENT || {};
+      const hasAccount = [payment.bank, payment.account, payment.holder].every(
+        (value) => typeof value === "string" && value.trim().length > 0,
+      );
+      $("payment-account").hidden = !hasAccount;
+      $("payment-missing").hidden = hasAccount;
+      message("payment-bank", hasAccount ? payment.bank : "");
+      message("payment-number", hasAccount ? payment.account : "");
+      message("payment-holder", hasAccount ? "예금주 " + payment.holder : "");
+      message("payment-amount", money(result.total));
+      $("payment-guide").hidden = false;
+      $("summary-heading").focus();
       $("submit-order").hidden = true;
       $("new-order").hidden = false;
     } catch (error) {
@@ -544,32 +558,6 @@
     } finally {
       submitting = false;
     }
-  });
-  $("edit-button").addEventListener("click", () => {
-    if (!locked) $("customer").focus();
-  });
-  $("copy-button").addEventListener("click", async () => {
-    if (!prepared || $("copy-button").disabled) return;
-    const text = $("summary-text").value,
-      version = revision;
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = true;
-    } catch (_) {
-      $("summary-text").focus();
-      $("summary-text").select();
-      try {
-        copied = document.execCommand("copy");
-      } catch (_) {}
-    }
-    if (version === revision)
-      message(
-        "copy-status",
-        copied
-          ? "주문 내용을 복사했습니다."
-          : "선택한 내용을 Ctrl+C / ⌘C 또는 길게 눌러 복사해 주세요.",
-      );
   });
   async function catalog() {
     try {
