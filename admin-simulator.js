@@ -12,12 +12,12 @@
  function hideData(){base=null;catalog=null;$('sim-data').hidden=true;hideResults();for(const id of ['sim-expense','sim-income','sim-stock','sim-updated'])$(id).textContent='—';for(const id of ['sim-categories'])$(id).replaceChildren();for(const id of ['sim-baseline-note','sim-input-message','sim-plan-note'])$(id).textContent='';}
  function disabled(value){$('sim-year').disabled=value;$('sim-refresh').disabled=value;$('sim-form').querySelectorAll('input,button').forEach(e=>e.disabled=value);}
  function fillStock(){if(!base)return;const plan=math.planStock(base.availableKg);$('sim-qty5').value=plan.qty5;$('sim-qty2').value=plan.qty2;}
- function resetPrices(){if(!catalog)return;$('sim-price2').value=catalog.find(p=>p.id==='hopungmi-2kg').price;$('sim-price5').value=catalog.find(p=>p.id==='hopungmi-5kg').price;}
+ function resetPrices(){if(!catalog)return;for(const k of [2,5])$('sim-price'+k+'-range').max=50000;$('sim-price2').value=catalog.find(p=>p.id==='hopungmi-2kg').price;$('sim-price5').value=catalog.find(p=>p.id==='hopungmi-5kg').price;}
  function syncSliders(){
   for(const k of [2,5]){
    const field=$('sim-price'+k),slider=$('sim-price'+k+'-range');
    const valid=field.value!==''&&field.validity.valid,price=valid?Number(field.value):0;
-   const max=Math.min(100000000,Math.max(50000,Math.ceil(price/10000)*10000));
+   const max=Math.min(100000000,Math.max(50000,Number(slider.max),Math.ceil(price/10000)*10000));
    slider.max=max;slider.value=Math.round(price/1000)*1000;
    slider.setAttribute('aria-valuetext',money(Number(slider.value)));
    slider.style.setProperty('--sim-slider-progress',(Number(slider.value)/max*100)+'%');
@@ -79,7 +79,7 @@
   }catch(e){if(ticket===epoch){hideData();message(e.message,true);}}
   finally{if(ticket===epoch){loading=false;disabled(false);render();}}
  }
- function clear(){epoch++;loading=false;initialized=false;hideData();$('sim-form').reset();$('sim-year-form').reset();$('sim-year').value=todayYear();for(const id of ids)$(id).removeAttribute('aria-invalid');$('sim-plan-note').classList.remove('error');$('simulator-panel').hidden=true;message('');disabled(false);syncSliders();}
+ function clear(){epoch++;loading=false;initialized=false;hideData();$('sim-form').reset();for(const k of [2,5])$('sim-price'+k+'-range').max=50000;$('sim-year-form').reset();$('sim-year').value=todayYear();for(const id of ids)$(id).removeAttribute('aria-invalid');$('sim-plan-note').classList.remove('error');$('simulator-panel').hidden=true;message('');disabled(false);syncSliders();}
  function init(){
   $('sim-year').value=todayYear();$('sim-year-form').addEventListener('submit',e=>{e.preventDefault();load();});
   $('sim-year').addEventListener('input',()=>{if(!loading){hideData();message('연도를 바꿨습니다. 장부·재고 새로고침을 눌러 주세요.');}});
