@@ -159,8 +159,8 @@
         </section>
       </div>
     </section>
-    <!-- 마지막 섹션: 주문 접수/결제 기능이 아닌, 검증 + 요약 + 복사 전용 폼입니다. -->
-    <section class="order" id="order" aria-labelledby="order-title"><div class="wrap order-grid"><div class="order-intro"><p class="eyebrow">어쩌다 농부 · 고구맙습니다</p><h2 id="order-title">고구맙습니다<br>주문서</h2><p>고구마를 고르고, 받으실 곳을 적어 주세요.<br>상품 금액과 배송비를 함께 확인하실 수 있습니다.</p><ol class="order-steps"><li><span>01</span>상품과 수량을 선택해 주세요.</li><li><span>02</span>주문자와 배송 정보를 적어 주세요.</li><li><span>03</span><span id="contact-guidance" style="font:inherit;color:inherit">주문서를 복사해 판매자에게 전달해 주세요.</span></li></ol><svg class="order-mini" viewBox="0 0 300 326" aria-hidden="true"><use href="#mascot-thanks"/></svg></div><div class="form-panel"><noscript><p class="noscript">주문서를 작성하려면 브라우저에서 자바스크립트를 켜 주세요.</p></noscript><form id="order-form" novalidate autocomplete="on"><div class="form-heading"><h3>상품 · 배송 정보</h3><span>필수 항목은 * 표시</span></div><div id="form-errors" class="error-summary" role="alert" tabindex="-1" hidden></div><div class="form-row product-row"><div class="field"><label for="product-select">상품 / 중량 *</label><select id="product-select" name="product" required aria-describedby="product-error"><option value="hopungmi-2kg">호풍미 2kg · 10,000원</option><option value="hopungmi-5kg" selected>호풍미 5kg · 20,000원</option></select><p class="error" id="product-error"></p></div><div class="field"><label for="quantity">수량 *</label><input id="quantity" name="quantity" type="number" inputmode="numeric" min="1" max="99" step="1" value="1" required aria-describedby="quantity-error quantity-hint"><p class="error" id="quantity-error"></p><p class="hint" id="quantity-hint">1~99개</p></div></div>
+    <!-- 주문 정보 확인 후 Supabase에 접수합니다. 결제는 별도입니다. -->
+    <section class="order" id="order" aria-labelledby="order-title"><div class="wrap order-grid"><div class="order-intro"><p class="eyebrow">어쩌다 농부 · 고구맙습니다</p><h2 id="order-title">고구맙습니다<br>주문서</h2><p>고구마를 고르고, 받으실 곳을 적어 주세요.<br>상품 금액과 배송비를 함께 확인하실 수 있습니다.</p><ol class="order-steps"><li><span>01</span>상품과 수량을 선택해 주세요.</li><li><span>02</span>주문자와 배송 정보를 적어 주세요.</li><li><span>03</span><span id="contact-guidance" style="font:inherit;color:inherit">주문서를 확인한 뒤 접수해 주세요.</span></li></ol><svg class="order-mini" viewBox="0 0 300 326" aria-hidden="true"><use href="#mascot-thanks"/></svg></div><div class="form-panel"><noscript><p class="noscript">주문서를 작성하려면 브라우저에서 자바스크립트를 켜 주세요.</p></noscript><form id="order-form" novalidate autocomplete="on"><div class="form-heading"><h3>상품 · 배송 정보</h3><span>필수 항목은 * 표시</span></div><div id="form-errors" class="error-summary" role="alert" tabindex="-1" hidden></div><div class="form-row product-row"><div class="field"><label for="product-select">상품 / 중량 *</label><select id="product-select" name="product" required aria-describedby="product-error"><option value="hopungmi-2kg">호풍미 2kg · 10,000원</option><option value="hopungmi-5kg" selected>호풍미 5kg · 20,000원</option></select><p class="error" id="product-error"></p></div><div class="field"><label for="quantity">수량 *</label><input id="quantity" name="quantity" type="number" inputmode="numeric" min="1" max="99" step="1" value="1" required aria-describedby="quantity-error quantity-hint"><p class="error" id="quantity-error"></p><p class="hint" id="quantity-hint">1~99개</p></div></div>
           <div class="field discount-field">
             <label for="discount-code">할인코드 <small>선택</small></label>
             <div class="discount-entry"><input id="discount-code" name="discountCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="할인코드를 입력해 주세요" aria-describedby="discount-hint discount-error discount-status"><button class="button secondary" type="button" id="apply-discount">적용</button></div>
@@ -171,222 +171,15 @@
           <div class="order-totals" aria-label="주문 금액" aria-live="polite" aria-atomic="true">
             <dl><div><dt>상품 금액</dt><dd id="subtotal-amount">20,000원</dd></div><div class="discount-line" id="discount-line" hidden><dt>할인코드 할인</dt><dd id="discount-amount">−2,000원</dd></div><div><dt>배송비</dt><dd id="shipping-amount">3,500원</dd></div><div class="total-line"><dt>총 주문 금액</dt><dd id="total-amount">23,500원</dd></div></dl>
           </div>
-          <div class="form-row"><div class="field"><label for="customer">주문자 *</label><input id="customer" name="customer" autocomplete="name" placeholder="성함" maxlength="40" required aria-describedby="customer-error"><p class="error" id="customer-error"></p></div><div class="field"><label for="phone">연락처 *</label><input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="010-1234-5678" maxlength="20" required aria-describedby="phone-error phone-hint"><p class="error" id="phone-error"></p><p class="hint" id="phone-hint">숫자와 하이픈으로 입력</p></div></div><div class="field"><label for="address">배송 주소 *</label><input id="address" name="address" autocomplete="address-line1" placeholder="도로명 또는 지번 주소" maxlength="200" required aria-describedby="address-error"><p class="error" id="address-error"></p></div><div class="field"><label for="address-detail">상세 주소 <small>선택</small></label><input id="address-detail" name="addressDetail" autocomplete="address-line2" placeholder="동·호수 등 상세 주소" maxlength="120"></div><div class="field"><label for="memo">배송 메모 <small>선택</small></label><textarea id="memo" name="memo" rows="3" maxlength="300" placeholder="배송 시 참고할 내용을 적어 주세요."></textarea></div><label class="check-label" for="order-check"><input type="checkbox" id="order-check" name="orderCheck" required aria-describedby="order-check-error"><span>선택한 상품과 수량, 연락처와 배송 주소를 확인했습니다. *</span></label><p id="order-check-error" class="consent-error"></p><button class="button form-submit" type="submit" id="prepare-button" disabled>주문서 확인하기 <span aria-hidden="true">→</span></button><p class="form-note">작성한 주문서는 복사해 판매자에게 직접 전달해 주세요. 이 페이지에서는 자동으로 전송되지 않습니다. 입력 정보는 별도로 저장하지 않습니다.</p></form><section class="summary-panel" id="summary-panel" aria-labelledby="summary-heading" hidden><h3 id="summary-heading" tabindex="-1">주문서를 확인해 주세요.</h3><p>상품과 금액, 배송지를 확인한 뒤 주문서를 복사해 판매자에게 전달해 주세요.</p><label for="summary-text" class="sr-only">복사할 주문서</label><textarea class="summary-text" id="summary-text" readonly spellcheck="false"></textarea><div class="summary-actions"><button class="button" id="copy-button" type="button">주문서 복사 <span aria-hidden="true">↗</span></button><button class="button secondary" id="edit-button" type="button">내용 수정</button></div><p id="stale-note" class="stale-note" hidden>입력 내용이 변경되었습니다. ‘주문서 확인하기’를 다시 눌러 주세요.</p><p class="summary-status" id="copy-status" role="status" aria-live="polite"></p></section></div></div></section>
+          <div class="form-row"><div class="field"><label for="customer">주문자 *</label><input id="customer" name="customer" autocomplete="name" placeholder="성함" maxlength="40" required aria-describedby="customer-error"><p class="error" id="customer-error"></p></div><div class="field"><label for="phone">연락처 *</label><input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="010-1234-5678" maxlength="20" required aria-describedby="phone-error phone-hint"><p class="error" id="phone-error"></p><p class="hint" id="phone-hint">숫자와 하이픈으로 입력</p></div></div><div class="field"><label for="address">배송 주소 *</label><input id="address" name="address" autocomplete="address-line1" placeholder="도로명 또는 지번 주소" maxlength="200" required aria-describedby="address-error"><p class="error" id="address-error"></p></div><div class="field"><label for="address-detail">상세 주소 <small>선택</small></label><input id="address-detail" name="addressDetail" autocomplete="address-line2" placeholder="동·호수 등 상세 주소" maxlength="120"></div><div class="field"><label for="memo">배송 메모 <small>선택</small></label><textarea id="memo" name="memo" rows="3" maxlength="300" placeholder="배송 시 참고할 내용을 적어 주세요."></textarea></div><label class="check-label" for="order-check"><input type="checkbox" id="order-check" name="orderCheck" required aria-describedby="order-check-error"><span>주문 정보를 확인했으며, 주문 처리·배송을 위한 개인정보 수집 및 이용에 동의합니다. *</span></label><p id="order-check-error" class="consent-error"></p><p class="form-note">수집 항목: 성함, 연락처, 배송 주소 및 입력한 배송 메모. 주문 확인과 배송에 사용합니다. 동의하지 않으면 주문을 접수할 수 없습니다.</p><p id="connection-status" class="form-note" role="status"></p><button class="button form-submit" type="submit" id="prepare-button" disabled>주문서 확인하기 <span aria-hidden="true">→</span></button><p class="form-note">다음 화면에서 내용을 확인한 뒤 접수합니다. 접수된 정보는 판매자만 확인하며, 결제는 별도로 안내합니다.</p></form><section class="summary-panel" id="summary-panel" aria-labelledby="summary-heading" hidden><h3 id="summary-heading" tabindex="-1">주문서를 확인해 주세요.</h3><p id="summary-guide">상품과 배송지를 확인한 뒤 주문을 접수해 주세요.</p><label for="summary-text" class="sr-only">복사할 주문서</label><textarea class="summary-text" id="summary-text" readonly spellcheck="false"></textarea><p id="order-status" class="summary-status" role="status" aria-live="polite"></p><div class="summary-actions"><button class="button" id="submit-order" type="button" disabled>주문 접수하기 →</button><button class="button secondary" id="copy-button" type="button">주문서 복사 <span aria-hidden="true">↗</span></button><button class="button secondary" id="edit-button" type="button">내용 수정</button></div><p id="stale-note" class="stale-note" hidden>입력 내용이 변경되었습니다. ‘주문서 확인하기’를 다시 눌러 주세요.</p><p class="summary-status" id="copy-status" role="status" aria-live="polite"></p></section></div></div></section>
   </main>
-  <footer class="footer"><div class="wrap"><div class="footer-top"><div><p class="footer-brand">어쩌다 농부</p><p>홍세환 · 윤가희 · 충청남도 태안</p></div><a href="#top">처음으로 <span aria-hidden="true">↑</span></a></div><div class="footer-bottom"><span>어쩌다 농부의 첫 번째 고구마, 고구맙습니다.</span><span>태안에서 키워, 고마운 마음을 담아.</span></div></div></footer>
+  <footer class="footer"><div class="wrap"><div class="footer-top"><div><p class="footer-brand">어쩌다 농부</p><p>홍세환 · 윤가희 · 충청남도 태안</p></div><a href="#top">처음으로 <span aria-hidden="true">↑</span></a></div><div class="footer-bottom"><span>어쩌다 농부의 첫 번째 고구마, 고구맙습니다.</span><a href="admin.html">농부 관리실</a></div></div></footer>
+  <script src="farmer-config.js"></script>
+  <script src="farmer-api.js"></script>
+  <script src="customer.js"></script>
   <script>
-    /* 관리자 설정: 가격/배송비는 원 단위 숫자입니다.
-     * 상품 표, 선택 항목, 주문 금액, 복사할 주문서에 함께 반영됩니다.
-     * shippingFee는 주문서 한 건에 한 번 더합니다. 배송 정책 변경 시 수정하세요.
-     * maxQuantity는 입력 한도이며 재고 수량이 아닙니다.
-     * contactGuide에 확인된 주문 전달 방법을 적을 수 있습니다.
-     * 자동 주문 전송/결제를 연결하려면 별도의 운영 연동이 필요합니다. */
-    const SITE_CONFIG = {
-      brand: "어쩌다 농부",
-      productName: "고구맙습니다",
-      variety: "호풍미",
-      size: "혼합",
-      shippingFee: 3500,
-      maxQuantity: 99,
-      defaultProductId: "hopungmi-5kg",
-      // 주문당 정액 할인, 배송비 제외. enabled를 false로 바꾸면 해당 코드를 중지합니다.
-      discountCodes: [{ code: "GOGUMA", amount: 2000, enabled: true }],
-      contactGuide: "주문서를 복사해 판매자에게 전달해 주세요.",
-      products: [
-        { id: "hopungmi-2kg", weight: "2kg", price: 10000, unit: "개" },
-        { id: "hopungmi-5kg", weight: "5kg", price: 20000, unit: "개" }
-      ]
-    };
-
     (() => {
-      "use strict";
       const $ = id => document.getElementById(id);
-      const form = $("order-form");
-      const productSelect = $("product-select");
-      const quantity = $("quantity");
-      const panel = $("summary-panel");
-      const summaryText = $("summary-text");
-      const copyButton = $("copy-button");
-      const discountInput = $("discount-code");
-      const normalizeCode = value => value.normalize("NFKC").trim().toUpperCase();
-      let appliedDiscount = null;
-      const money = amount => `${new Intl.NumberFormat("ko-KR").format(amount)}원`;
-      const product = () => SITE_CONFIG.products.find(item => item.id === productSelect.value);
-      const validQuantity = () => quantity.value.trim() !== "" && Number.isInteger(Number(quantity.value)) && Number(quantity.value) >= 1 && Number(quantity.value) <= SITE_CONFIG.maxQuantity;
-      const amounts = () => {
-        if (!product() || !validQuantity()) return null;
-        const subtotal = product().price * Number(quantity.value);
-        const discount = appliedDiscount ? Math.min(subtotal, Math.max(0, appliedDiscount.amount)) : 0;
-        return { subtotal, discount, shipping: SITE_CONFIG.shippingFee, total: subtotal - discount + SITE_CONFIG.shippingFee };
-      };
-      let generated = false;
-      let summaryVersion = 0;
-      let validationStarted = false;
-
-      productSelect.replaceChildren(...SITE_CONFIG.products.map(item => {
-        const option = document.createElement("option");
-        option.value = item.id;
-        option.defaultSelected = item.id === SITE_CONFIG.defaultProductId;
-        option.textContent = `${SITE_CONFIG.variety} ${item.weight} · ${money(item.price)}`;
-        return option;
-      }));
-      const catalog = {
-        variety: SITE_CONFIG.variety,
-        weight: `${SITE_CONFIG.size} / ${SITE_CONFIG.products.map(item => item.weight).join(", ")}`,
-        price: SITE_CONFIG.products.map(item => `${item.weight} ${money(item.price)}`).join(" / "),
-        shipping: money(SITE_CONFIG.shippingFee)
-      };
-      document.querySelectorAll("[data-catalog]").forEach(node => { node.textContent = catalog[node.dataset.catalog]; });
-      quantity.max = String(SITE_CONFIG.maxQuantity);
-      function renderTotals() {
-        const value = amounts();
-        $("subtotal-amount").textContent = value ? money(value.subtotal) : "—";
-        $("shipping-amount").textContent = money(SITE_CONFIG.shippingFee);
-        $("discount-line").hidden = !appliedDiscount;
-        $("discount-amount").textContent = value ? `−${money(value.discount)}` : "—";
-        $("total-amount").textContent = value ? money(value.total) : "수량을 확인해 주세요";
-        $("quantity-hint").textContent = `1~${SITE_CONFIG.maxQuantity}${product()?.unit || "개"}`;
-      }
-      renderTotals();
-      $("contact-guidance").textContent = SITE_CONFIG.contactGuide;
-      $("prepare-button").disabled = SITE_CONFIG.products.length === 0;
-
-      const validations = [
-        ["product-select", "product-error", () => product() ? "" : "상품을 선택해 주세요."],
-        ["quantity", "quantity-error", () => validQuantity() ? "" : `수량은 1~${SITE_CONFIG.maxQuantity} 사이의 정수로 입력해 주세요.`],
-        ["discount-code", "discount-error", () => discountInput.value.trim() && !appliedDiscount ? "할인코드를 적용하거나 입력란을 비워 주세요." : ""],
-        ["customer", "customer-error", () => $("customer").value.trim() ? "" : "주문자 성함을 입력해 주세요."],
-        ["phone", "phone-error", () => {
-          const value = $("phone").value.trim().replace(/[\s()-]/g, "");
-          return /^(?:0\d{8,10}|\+82\d{8,10})$/.test(value) ? "" : "연락 가능한 전화번호를 입력해 주세요. 예: 010-1234-5678";
-        }],
-        ["address", "address-error", () => $("address").value.trim().length >= 5 ? "" : "배송 주소를 5자 이상 입력해 주세요."],
-        ["order-check", "order-check-error", () => $("order-check").checked ? "" : "상품과 배송 정보를 확인한 뒤 체크해 주세요."]
-      ];
-      function validateField(rule) {
-        const [id, errorId, test] = rule, message = test();
-        $(errorId).textContent = message;
-        $(id).setAttribute("aria-invalid", message ? "true" : "false");
-        return message;
-      }
-      function markStale() {
-        if (!generated) return;
-        summaryVersion++;
-        copyButton.disabled = true;
-        $("stale-note").hidden = false;
-        $("copy-status").textContent = "";
-        summaryText.value = "입력 내용이 변경되었습니다. 위의 ‘주문서 확인하기’를 다시 눌러 최신 주문서를 확인해 주세요.";
-      }
-      function clearDiscount(message = "") {
-        appliedDiscount = null;
-        $("discount-status").textContent = message;
-        $("discount-error").textContent = "";
-        discountInput.removeAttribute("aria-invalid");
-        $("remove-discount").hidden = true;
-        renderTotals();
-      }
-      function applyDiscount() {
-        markStale();
-        const code = normalizeCode(discountInput.value);
-        clearDiscount();
-        if (!code) {
-          $("discount-error").textContent = "할인코드를 입력해 주세요.";
-          discountInput.setAttribute("aria-invalid", "true");
-          discountInput.focus();
-          return;
-        }
-        const candidate = SITE_CONFIG.discountCodes.find(item => item.enabled && normalizeCode(item.code) === code);
-        if (!candidate) {
-          $("discount-error").textContent = "사용할 수 없는 할인코드입니다. 코드를 다시 확인해 주세요.";
-          discountInput.setAttribute("aria-invalid", "true");
-          discountInput.focus();
-          return;
-        }
-        appliedDiscount = candidate;
-        discountInput.value = candidate.code;
-        discountInput.setAttribute("aria-invalid", "false");
-        $("discount-status").textContent = `${candidate.code} · 주문당 ${money(candidate.amount)} 할인 적용`;
-        $("remove-discount").hidden = false;
-        renderTotals();
-      }
-      $("apply-discount").addEventListener("click", applyDiscount);
-      discountInput.addEventListener("keydown", event => {
-        if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); applyDiscount(); }
-      });
-      $("remove-discount").addEventListener("click", () => {
-        markStale(); discountInput.value = "";
-        clearDiscount("할인을 해제했습니다."); discountInput.focus();
-      });
-      form.addEventListener("input", event => {
-        markStale();
-        if (event.target === discountInput) clearDiscount(discountInput.value.trim() ? "코드를 입력한 뒤 적용을 눌러 주세요." : "");
-        if (event.target === quantity || event.target === productSelect) renderTotals();
-        if (validationStarted) {
-          const rule = validations.find(item => item[0] === event.target.id);
-          if (rule) validateField(rule);
-          $("form-errors").hidden = true;
-        }
-      });
-      productSelect.addEventListener("change", () => { renderTotals(); markStale(); });
-      form.addEventListener("submit", event => {
-        event.preventDefault(); validationStarted = true;
-        const errors = validations.map(rule => ({ rule, message: validateField(rule) })).filter(item => item.message);
-        if (errors.length) {
-          $("form-errors").hidden = false;
-          $("form-errors").textContent = `${errors.length}개 항목을 확인해 주세요. ${errors[0].message}`;
-          $(errors[0].rule[0]).focus();
-          return;
-        }
-        $("form-errors").hidden = true;
-        const current = product(), value = amounts();
-        summaryText.value = [
-          `[${SITE_CONFIG.brand} · ${SITE_CONFIG.productName} 주문서]`, "",
-          `상품: ${SITE_CONFIG.productName} ${current.weight}`,
-          `품종: ${SITE_CONFIG.variety}`, `크기: ${SITE_CONFIG.size}`,
-          `수량: ${Number(quantity.value)}${current.unit}`, `개당 가격: ${money(current.price)}`,
-          `상품 금액: ${money(value.subtotal)}`,
-          ...(appliedDiscount ? [`할인코드: ${appliedDiscount.code}`, `할인 금액: −${money(value.discount)}`] : []),
-          `배송비: ${money(value.shipping)}`,
-          `총 주문 금액: ${money(value.total)}`, "",
-          `주문자: ${$("customer").value.trim()}`, `연락처: ${$("phone").value.trim()}`,
-          `배송 주소: ${[$("address").value.trim(), $("address-detail").value.trim()].filter(Boolean).join(" ")}`,
-          `배송 메모: ${$("memo").value.trim() || "없음"}`
-        ].join("\n");
-        generated = true; summaryVersion++;
-        panel.hidden = false; copyButton.disabled = false;
-        $("stale-note").hidden = true; $("copy-status").textContent = "";
-        $("summary-heading").focus({ preventScroll: true });
-        panel.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
-      });
-      copyButton.addEventListener("click", async () => {
-        if (copyButton.disabled || !generated) return;
-        const text = summaryText.value, version = summaryVersion;
-        let copied = false;
-        try {
-          if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(text); copied = true;
-          }
-        } catch (_) { /* 권한 제한 시 직접 복사하도록 내용을 선택합니다. */ }
-        if (version !== summaryVersion) return;
-        if (!copied) {
-          summaryText.focus(); summaryText.select(); summaryText.setSelectionRange(0, summaryText.value.length);
-          try { copied = document.execCommand("copy"); } catch (_) { copied = false; }
-        }
-        $("copy-status").textContent = copied
-          ? "주문서를 복사했습니다. 판매자에게 직접 전달해 주세요."
-          : "주문서를 선택했습니다. 길게 누르거나 Ctrl+C / ⌘C로 복사한 뒤 판매자에게 전달해 주세요.";
-      });
-      $("edit-button").addEventListener("click", () => { $("customer").focus(); });
-      // 브라우저 뒤로 가기 캐시에서도 개인정보를 복구하지 않습니다.
-      function resetPrivateFields() {
-        form.reset(); clearDiscount(); panel.hidden = true; summaryText.value = ""; generated = false; summaryVersion++;
-        copyButton.disabled = false; $("copy-status").textContent = ""; $("form-errors").hidden = true;
-        $("stale-note").hidden = true; validationStarted = false;
-        validations.forEach(([id, errorId]) => { $(errorId).textContent = ""; $(id).removeAttribute("aria-invalid"); });
-        renderTotals();
-      }
-      window.addEventListener("pageshow", event => { if (event.persisted) resetPrivateFields(); });
-
       const progress = $("reading-progress");
       let scrollPending = false;
       function updateProgress() {

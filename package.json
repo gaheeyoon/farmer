@@ -1,0 +1,6 @@
+{
+  "name": "farmer",
+  "private": true,
+  "scripts": { "test": "node supabase/tests/database.mjs" },
+  "devDependencies": { "@electric-sql/pglite": "0.5.10" }
+}
