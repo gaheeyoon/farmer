@@ -13,6 +13,17 @@
  function disabled(value){$('sim-year').disabled=value;$('sim-refresh').disabled=value;$('sim-form').querySelectorAll('input,button').forEach(e=>e.disabled=value);}
  function fillStock(){if(!base)return;const plan=math.planStock(base.availableKg);$('sim-qty5').value=plan.qty5;$('sim-qty2').value=plan.qty2;}
  function resetPrices(){if(!catalog)return;$('sim-price2').value=catalog.find(p=>p.id==='hopungmi-2kg').price;$('sim-price5').value=catalog.find(p=>p.id==='hopungmi-5kg').price;}
+ function syncSliders(){
+  for(const k of [2,5]){
+   const field=$('sim-price'+k),slider=$('sim-price'+k+'-range');
+   const valid=field.value!==''&&field.validity.valid,price=valid?Number(field.value):0;
+   const max=Math.min(100000000,Math.max(50000,Math.ceil(price/10000)*10000));
+   slider.max=max;slider.value=Math.round(price/1000)*1000;
+   slider.setAttribute('aria-valuetext',money(Number(slider.value)));
+   slider.style.setProperty('--sim-slider-progress',(Number(slider.value)/max*100)+'%');
+   $('sim-price'+k+'-value').textContent=valid?money(price):'—';$('sim-price'+k+'-max').textContent=money(max);
+  }
+ }
  function input(){
   if(!base)return null;
   let invalid=false;
@@ -22,6 +33,7 @@
   return {expense:base.expense,income:base.income,availableKg:base.availableKg,price2:Number($('sim-price2').value),price5:Number($('sim-price5').value),qty2:Number($('sim-qty2').value),qty5:Number($('sim-qty5').value),shipping:Number($('sim-shipping').value),packing:Number($('sim-packing').value)};
  }
  function render(){
+  syncSliders();
   if(!base||loading)return;hideResults();$('sim-plan-note').textContent='';
   const p=input();if(!p)return;
   try{
@@ -67,11 +79,11 @@
   }catch(e){if(ticket===epoch){hideData();message(e.message,true);}}
   finally{if(ticket===epoch){loading=false;disabled(false);render();}}
  }
- function clear(){epoch++;loading=false;initialized=false;hideData();$('sim-form').reset();$('sim-year-form').reset();$('sim-year').value=todayYear();for(const id of ids)$(id).removeAttribute('aria-invalid');$('sim-plan-note').classList.remove('error');$('simulator-panel').hidden=true;message('');disabled(false);}
+ function clear(){epoch++;loading=false;initialized=false;hideData();$('sim-form').reset();$('sim-year-form').reset();$('sim-year').value=todayYear();for(const id of ids)$(id).removeAttribute('aria-invalid');$('sim-plan-note').classList.remove('error');$('simulator-panel').hidden=true;message('');disabled(false);syncSliders();}
  function init(){
   $('sim-year').value=todayYear();$('sim-year-form').addEventListener('submit',e=>{e.preventDefault();load();});
   $('sim-year').addEventListener('input',()=>{if(!loading){hideData();message('연도를 바꿨습니다. 장부·재고 새로고침을 눌러 주세요.');}});
-  $('sim-form').addEventListener('submit',e=>{e.preventDefault();render();});$('sim-form').addEventListener('input',render);$('sim-form').addEventListener('change',render);
+  $('sim-form').addEventListener('submit',e=>{e.preventDefault();render();});$('sim-form').addEventListener('input',e=>{if(e.target.dataset.priceInput)$(e.target.dataset.priceInput).value=e.target.value;render();});$('sim-form').addEventListener('change',e=>{if(e.target.dataset.priceInput)$(e.target.dataset.priceInput).value=e.target.value;render();});
   $('sim-fill-stock').addEventListener('click',()=>{fillStock();render();});$('sim-reset-prices').addEventListener('click',()=>{resetPrices();render();});
  }
  window.FarmerSimulator=Object.freeze({init,clear,show:view=>{if(view==='simulator')load();}});
