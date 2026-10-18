@@ -537,6 +537,7 @@
     </style>
     <link rel="stylesheet" href="admin-finance.css?v=20261018-finance1" />
     <link rel="stylesheet" href="admin-discounts.css?v=20261018-codes1" />
+    <link rel="stylesheet" href="admin-simulator.css?v=20261019-sim1" />
   </head>
   <body>
     <header>
@@ -588,7 +589,7 @@
         </p>
       </section>
       <section id="dashboard" hidden>
-        <nav class="admin-sections" aria-label="관리 메뉴"><button type="button" data-admin-view="operations" aria-pressed="true">주문 · 재고</button><button type="button" data-admin-view="finance" aria-pressed="false">손익분석</button><button type="button" data-admin-view="discounts" aria-pressed="false">할인 코드</button></nav>
+        <nav class="admin-sections" aria-label="관리 메뉴"><button type="button" data-admin-view="operations" aria-pressed="true">주문 · 재고</button><button type="button" data-admin-view="finance" aria-pressed="false">손익분석</button><button type="button" data-admin-view="discounts" aria-pressed="false">할인 코드</button><button type="button" data-admin-view="simulator" aria-pressed="false">가격 시뮬레이션</button></nav>
         <div id="operations-panel">
         <div class="topline">
           <div>
@@ -731,6 +732,31 @@
           </div>
         </section>
         </div>
+        <section id="simulator-panel" hidden aria-labelledby="sim-heading">
+          <div class="topline"><div><p class="eyebrow">고구맙습니다 · 판매 계획</p><h1 id="sim-heading">가격 시뮬레이션</h1><p class="sub">얼마에, 얼마나 팔면 얼마가 남을까요?</p></div><form id="sim-year-form" class="sim-year-form"><div><label for="sim-year">장부 연도</label><input id="sim-year" type="number" min="2000" max="2100" step="1" required /></div><button class="button secondary" type="submit" id="sim-refresh">장부·재고 새로고침</button></form></div>
+          <p class="message" id="sim-message" role="status"></p>
+          <div id="sim-data" hidden>
+            <div class="sim-baseline"><div><span>손익분석의 지출</span><strong id="sim-expense">—</strong></div><div><span>기존 수입</span><strong id="sim-income">—</strong></div><div><span>현재 남은 재고</span><strong id="sim-stock">—</strong></div><div><span>자료 확인</span><strong id="sim-updated">—</strong></div></div>
+            <details class="sim-ledger-detail"><summary>불러온 지출 구성 보기</summary><div id="sim-categories"></div><p id="sim-baseline-note" class="sim-note"></p></details>
+            <div class="sim-workspace">
+              <form id="sim-form" class="panel sim-controls" novalidate><h2>추가 판매 계획</h2><p class="sim-note">판매가는 상자당 실제 받을 금액을 입력해 주세요.</p>
+                <div class="sim-product"><h3>호풍미 2kg</h3><div class="sim-input-pair"><div class="field"><label for="sim-price2">판매가 (원)</label><input id="sim-price2" type="number" min="0" max="100000000" step="1" inputmode="numeric" required /></div><div class="field"><label for="sim-qty2">판매 수량 (상자)</label><input id="sim-qty2" type="number" min="0" max="1000000" step="1" inputmode="numeric" required /></div></div></div>
+                <div class="sim-product"><h3>호풍미 5kg</h3><div class="sim-input-pair"><div class="field"><label for="sim-price5">판매가 (원)</label><input id="sim-price5" type="number" min="0" max="100000000" step="1" inputmode="numeric" required /></div><div class="field"><label for="sim-qty5">판매 수량 (상자)</label><input id="sim-qty5" type="number" min="0" max="1000000" step="1" inputmode="numeric" required /></div></div></div>
+                <div class="sim-quick"><button class="text-button" id="sim-fill-stock" type="button">남은 재고로 수량 채우기</button><button class="text-button" id="sim-reset-prices" type="button">현재 판매가 불러오기</button></div>
+                <div class="sim-cost-inputs"><h3>상자당 드는 비용</h3><div class="sim-input-pair"><div class="field"><label for="sim-shipping">개당 배송비 (원)</label><input id="sim-shipping" type="number" min="0" max="100000000" step="1" inputmode="numeric" placeholder="배송비 입력" required /></div><div class="field"><label for="sim-packing">개당 상자비 (원)</label><input id="sim-packing" type="number" min="0" max="100000000" step="1" inputmode="numeric" placeholder="상자비 입력" required /></div></div><p class="sim-note">판매 상자마다 배송비와 상자비가 각각 한 번 발생한다고 가정합니다. 비용이 없으면 0을 입력해 주세요.</p></div>
+                <p class="message" id="sim-input-message" role="status"></p><p class="sim-stock-note" id="sim-plan-note"></p>
+              </form>
+              <div class="sim-outlook"><div id="sim-placeholder" class="panel sim-placeholder"><span aria-hidden="true">₩</span><h2>판매 후 손익을 미리 확인하세요.</h2><p>배송비와 상자비를 입력하면<br />예상 수입과 손익을 계산합니다.</p></div>
+                <div id="sim-results" hidden><div class="sim-profit-card"><p>추가 판매 후 예상 손익</p><strong id="sim-profit">—</strong><span id="sim-profit-note"></span></div>
+                  <div class="sim-result-pair"><article><p>예상 총수입</p><strong id="sim-total-income">—</strong><small>기존 수입 + 추가 판매액</small></article><article><p>예상 총지출</p><strong id="sim-total-cost">—</strong><small>장부 지출 + 추가 비용</small></article></div>
+                  <div class="panel sim-calculation"><h2>계산 내역</h2><dl><div><dt>기존 수입</dt><dd id="sim-base-income">—</dd></div><div><dt>추가 판매 예상액</dt><dd id="sim-revenue">—</dd></div><div><dt>장부에 기록한 지출</dt><dd id="sim-base-expense">—</dd></div><div><dt>추가 배송비</dt><dd id="sim-shipping-cost">—</dd></div><div><dt>추가 상자비</dt><dd id="sim-packing-cost">—</dd></div></dl><div class="sim-break-even"><p>손익 0원을 위한 최소 평균 판매가</p><strong id="sim-break-even">—</strong><small id="sim-break-even-note"></small></div></div>
+                </div>
+              </div>
+            </div>
+            <section class="panel sim-comparison" id="sim-comparison" hidden aria-labelledby="sim-comparison-heading"><div class="topline"><div><h2 id="sim-comparison-heading">판매가에 따른 손익 변화</h2><p class="sim-note" id="sim-impact"></p></div></div><div id="sim-bars" class="sim-bars" aria-hidden="true"></div><div class="table-scroll"><table><caption class="sr-only">현재 판매 구성과 비용에서 상자당 판매가를 조정한 비교</caption><thead><tr><th>상자당 가격 조정</th><th>2kg 판매가</th><th>5kg 판매가</th><th>추가 판매액</th><th>예상 손익</th></tr></thead><tbody id="sim-comparison-rows"></tbody></table></div></section>
+            <p class="sim-note">예상 손익 = 기존 수입 + 추가 판매액 − 장부 지출 − 추가 배송비 − 추가 상자비. 기존 수입은 선택 연도의 입금 확인된 주문 수입과 추가 수입입니다. 추가 배송비와 상자비는 앞으로 판매할 수량에만 반영합니다. 할인 판매는 할인 후 판매가로 입력해 주세요. 시뮬레이션은 실제 판매가·주문·장부를 변경하지 않습니다.</p>
+          </div>
+        </section>
         <section id="discounts-panel" hidden aria-labelledby="discounts-heading">
           <div class="topline"><div><p class="eyebrow">고구맙습니다 · 할인 코드</p><h1 id="discounts-heading">할인 코드 관리</h1><p class="sub coupon-intro">코드별 할인 혜택과 사용 수량을 관리합니다.</p></div><div class="actions"><button class="button" id="coupon-add" type="button">코드 추가</button><button class="button secondary" id="coupon-refresh" type="button">새로고침</button></div></div>
           <form id="coupon-filter" class="coupon-toolbar"><div class="field"><label for="coupon-search">코드명 검색</label><input id="coupon-search" maxlength="100" placeholder="코드명을 입력해 주세요" /></div><div class="field"><label for="coupon-status">사용 상태</label><select id="coupon-status"><option value="">전체</option><option value="active">사용 가능</option><option value="inactive">사용 중지</option><option value="exhausted">수량 소진</option><option value="deleted">삭제됨</option></select></div><button class="button secondary" type="submit">조회</button></form>
@@ -900,6 +926,8 @@
     <script src="admin-gifts.js?v=20261018-session1"></script>
     <script src="admin-finance.js?v=20261018-codes1"></script>
     <script src="admin-discounts.js?v=20261018-codes1"></script>
-    <script src="admin.js?v=20261018-codes1"></script>
+    <script src="simulation-math.js?v=20261019-sim1"></script>
+    <script src="admin-simulator.js?v=20261019-sim1"></script>
+    <script src="admin.js?v=20261019-sim1"></script>
   </body>
 </html>

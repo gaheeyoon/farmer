@@ -57,6 +57,7 @@
     window.FarmerGifts.clear();
     window.FarmerFinance.clear();
     window.FarmerDiscounts.clear();
+    window.FarmerSimulator.clear();
     state = { summary: null, orders: [], offset: 0, total: 0, current: null };
     requests.clear();
     bulkPending = null;
@@ -575,13 +576,15 @@
   });
   window.FarmerFinance.init(() => !locked());
   window.FarmerDiscounts.init();
+  window.FarmerSimulator.init();
   document.querySelectorAll('[data-admin-view]').forEach(button => button.addEventListener('click', () => {
     if (locked() || !window.FarmerFinance.canLeave() || !window.FarmerDiscounts.canLeave()) return;
     const view = button.dataset.adminView;
-    for (const name of ['operations', 'finance', 'discounts']) $(name + '-panel').hidden = name !== view;
+    for (const name of ['operations', 'finance', 'discounts', 'simulator']) $(name + '-panel').hidden = name !== view;
     document.querySelectorAll('[data-admin-view]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
     window.FarmerFinance.show(view);
     window.FarmerDiscounts.show(view);
+    window.FarmerSimulator.show(view);
   }));
   if (!api?.ready()) {
     message("login-message", "관리 시스템 연결을 준비하고 있습니다.", true);
