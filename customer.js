@@ -421,7 +421,7 @@
     if (!value) refreshCards();
   }
   const statusLabels = {
-    pending: "입금 대기", confirmed: "주문 확정", shipped: "배송 중",
+    pending: "입금 대기", confirmed: "입금 확인(배송 준비)", shipped: "배송 중",
     delivered: "배송 완료", cancelled: "주문 취소",
   };
   const node = (tag, text, className) => {

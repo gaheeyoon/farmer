@@ -201,7 +201,7 @@
       }
       .metrics {
         display: grid;
-        grid-template-columns: 1.4fr 1fr 1fr 1fr;
+        grid-template-columns: 1.2fr repeat(4, 1fr);
         gap: 16px;
         margin: 32px 0;
       }
@@ -216,6 +216,22 @@
         color: var(--bg);
         border: 0;
       }
+      .metric.stage { color: var(--ink); text-align: left; }
+      .metric.stage[aria-pressed="true"] { border-color: var(--purple); box-shadow: inset 0 0 0 1px var(--purple); background: #f1e7ee; }
+      .metric.stage:hover:not(:disabled) { border-color: var(--purple); }
+      .metric.stage span { display: block; font-size: 13px; }
+      input[type="checkbox"] { width: 20px; height: 20px; min-height: 0; padding: 0; margin: 0; accent-color: var(--purple); cursor: pointer; }
+      .select-cell { width: 48px; text-align: center; }
+      tr.selected { background: #f5edf2; }
+      .bulk-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; margin-bottom: 20px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+      .bulk-toolbar strong { margin-right: auto; }
+      .bulk-toolbar select { width: auto; max-width: 100%; }
+      .bulk-shipping { padding: 0 0 20px; }
+      .bulk-shipping .field { max-width: 360px; margin-top: 0; }
+      .shipment-inputs { display: grid; gap: 10px; margin-top: 16px; }
+      .shipment-row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr); align-items: center; gap: 16px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 6px; }
+      .shipment-row label { margin: 0; }
+      .shipment-row small { display: block; font-weight: 400; color: var(--muted); }
       .metric p {
         font-size: 13px;
       }
@@ -257,7 +273,7 @@
         align-items: flex-end;
       }
       .toolbar .filter {
-        width: 165px;
+        width: 210px;
       }
       .toolbar .search {
         flex: 1;
@@ -456,6 +472,10 @@
         .metric {
           padding: 17px;
         }
+        .metric.primary { grid-column: 1 / -1; }
+        .bulk-toolbar .button, .bulk-toolbar select { width: 100%; }
+        .bulk-toolbar strong { width: 100%; }
+        .shipment-row { grid-template-columns: 1fr; gap: 8px; }
         .metric strong {
           font-size: 32px;
         }
@@ -469,10 +489,11 @@
           flex-wrap: wrap;
         }
         .toolbar .filter {
-          width: 130px;
+          width: 100%;
         }
         .toolbar .search {
-          min-width: 100px;
+          flex: 1 1 100%;
+          max-width: none;
         }
         .toolbar button {
           width: 100%;
@@ -565,23 +586,21 @@
         <div class="metrics">
           <div class="metric primary">
             <p>판매 가능 재고</p>
-            <strong id="stock-value">—</strong><small>주문 확정 시 차감</small
+            <strong id="stock-value">—</strong><small>입금 확인 시 차감</small
             ><br /><button id="open-stock">재고 입고 · 조정</button>
           </div>
-          <div class="metric">
-            <p>입금 대기 주문</p>
-            <strong id="pending-value">—</strong
-            ><small>확정 전 · 재고 미차감</small>
-          </div>
-          <div class="metric">
-            <p>배송 중</p>
-            <strong id="shipped-value">—</strong
-            ><small id="confirmed-value">발송 대기 —건</small>
-          </div>
-          <div class="metric">
-            <p>배송 완료</p>
-            <strong id="delivered-value">—</strong><small>완료 일시 기록</small>
-          </div>
+          <button type="button" class="metric stage" data-stage="pending" aria-pressed="false">
+            <span>입금 대기</span><strong id="pending-value">—</strong><small>입금 확인 전</small>
+          </button>
+          <button type="button" class="metric stage" data-stage="confirmed" aria-pressed="false">
+            <span>입금 확인(배송 준비)</span><strong id="confirmed-value">—</strong><small>포장 · 발송 준비</small>
+          </button>
+          <button type="button" class="metric stage" data-stage="shipped" aria-pressed="false">
+            <span>배송 중</span><strong id="shipped-value">—</strong><small>발송한 주문</small>
+          </button>
+          <button type="button" class="metric stage" data-stage="delivered" aria-pressed="false">
+            <span>배송 완료</span><strong id="delivered-value">—</strong><small>전달을 마친 주문</small>
+          </button>
         </div>
         <section class="panel">
           <h2>주문 · 배송 관리</h2>
@@ -591,7 +610,7 @@
               ><select id="status-filter">
                 <option value="">전체</option>
                 <option value="pending">입금 대기</option>
-                <option value="confirmed">확정 · 발송 대기</option>
+                <option value="confirmed">입금 확인(배송 준비)</option>
                 <option value="shipped">배송 중</option>
                 <option value="delivered">배송 완료</option>
                 <option value="cancelled">취소</option>
@@ -608,6 +627,26 @@
             </div>
             <button class="button" type="submit">검색</button>
           </form>
+          <div class="bulk-toolbar" aria-label="선택 주문 일괄 처리">
+            <strong id="selection-count" aria-live="polite">선택한 주문 0건</strong>
+            <button type="button" class="button secondary" id="clear-selection" disabled>선택 해제</button>
+            <label class="sr-only" for="bulk-status">변경할 주문 상태</label>
+            <select id="bulk-status" disabled>
+              <option value="">변경할 상태</option>
+              <option value="confirmed">입금 확인(배송 준비)</option>
+              <option value="shipped">배송 중</option>
+              <option value="delivered">배송 완료</option>
+            </select>
+            <button type="button" class="button" id="bulk-submit" disabled>선택 주문 상태 변경</button>
+          </div>
+          <p class="message" id="bulk-message" role="status"></p>
+          <div class="bulk-shipping" id="bulk-shipping" hidden>
+            <div class="field">
+              <label for="bulk-carrier">선택 주문의 택배사 / 배송 방법</label>
+              <input id="bulk-carrier" maxlength="60" placeholder="택배사명 또는 직접 전달" />
+            </div>
+            <div class="shipment-inputs" id="shipment-inputs"></div>
+          </div>
           <div class="table-scroll">
             <table>
               <caption class="sr-only">
@@ -615,6 +654,7 @@
               </caption>
               <thead>
                 <tr>
+                  <th class="select-cell"><input type="checkbox" id="select-all" aria-label="현재 페이지의 변경 가능한 주문 전체 선택" /></th>
                   <th>주문번호 · 접수일</th>
                   <th>주문자</th>
                   <th>상품 · 중량</th>
@@ -637,9 +677,8 @@
             </div>
           </div>
           <p class="help">
-            주문번호를 누르면 배송지·메모를 확인하고 주문 확정, 발송, 배송
-            완료를 처리할 수 있습니다. 여러 배송지는 각각 한 건으로 표시됩니다.
-            입금 확인 후 주문을 확정해 주세요.
+            같은 단계의 주문을 체크하면 한 번에 다음 단계로 변경할 수 있습니다.
+            주문번호를 누르면 배송지·메모 확인과 개별 취소가 가능합니다.
           </p>
         </section>
         <section class="panel">

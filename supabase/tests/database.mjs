@@ -120,7 +120,62 @@ await db.exec("reset role;update farmer_private.order_lookup_limits set window_s
 assert.equal((await lookup('없는 이름','01077778888')).retry_after,undefined);
 console.log('PASS: name/phone lookup, repeat orders, pagination, masked fields, wrong credentials, legacy orders, live fulfillment status, attempt limit and reset.');
 
+// Bulk fulfillment is atomic, version checked and retry safe across every stage.
+await anon();
+const bulkReceipts = [];
+for (let i = 1; i <= 2; i++) bulkReceipts.push(await submit(orderArgs(`60000000-0000-4000-8000-${String(i).padStart(12, '0')}`)));
+const bulk = (items, status) => rpc('select public.farmer_admin_bulk_status($1,$2) as result', [JSON.stringify(items), status]);
+await expectError(() => bulk([], 'confirmed'), 'permission denied');
+await db.exec(`reset role;select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);set role authenticated;`);
+await expectError(() => bulk([], 'confirmed'), '관리자 권한');
+await db.exec('reset role;update public.farmer_inventory set available_grams=7000;');
+await admin();
+const bulkOrders = (await rpc('select public.farmer_admin_orders() as result')).orders
+  .filter(o => bulkReceipts.some(r => r.order_number === o.order_number)).sort((a,b) => a.id.localeCompare(b.id));
+assert.equal(bulkOrders.length, 2);
+const payload = (stage, version) => bulkOrders.map((o,i) => ({order_id:o.id, expected_version:version,
+  request_id:`70000000-0000-4000-8000-${String(stage * 10 + i).padStart(12, '0')}`, carrier:'검증 택배', tracking_number:`TEST-${i}`}));
+const confirmedPayload = payload(1,1);
+const bulkState = async () => {
+  const list = (await rpc('select public.farmer_admin_orders() as result')).orders;
+  return list.filter(o => bulkOrders.some(b => b.id === o.id)).sort((a,b) => a.id.localeCompare(b.id));
+};
+const bulkKg = async () => (await rpc('select public.farmer_admin_summary() as result')).available_kg;
+await expectError(() => bulk(confirmedPayload, 'confirmed'), '재고가 부족');
+assert.equal(await bulkKg(), 7);
+assert.ok((await bulkState()).every(o => o.status === 'pending' && o.version === 1));
+await db.exec('reset role;update public.farmer_inventory set available_grams=20000;');await admin();
+await expectError(() => bulk([confirmedPayload[0], {...confirmedPayload[1],expected_version:2}], 'confirmed'), '다른 화면');
+assert.equal(await bulkKg(),20);
+assert.ok((await bulkState()).every(o => o.status === 'pending' && o.version === 1));
+await expectError(() => bulk(confirmedPayload, 'delivered'), '변경할 수 없는');
+await expectError(() => bulk([], 'confirmed'), '1~50건');
+await expectError(() => bulk(Array(51).fill(confirmedPayload[0]), 'confirmed'), '1~50건');
+await expectError(() => bulk([confirmedPayload[0],confirmedPayload[0]], 'confirmed'), '중복');
+await expectError(() => bulk([confirmedPayload[0],{...confirmedPayload[1],request_id:confirmedPayload[0].request_id}], 'confirmed'), '중복');
+await expectError(() => bulk([{order_id:bulkOrders[0].id}], 'confirmed'), '올바르지');
+await expectError(() => bulk(confirmedPayload, 'cancelled'), '일괄 변경할 수 없는');
+assert.equal((await bulk(confirmedPayload, 'confirmed')).processed_count,2);
+assert.equal(await bulkKg(),10);
+await bulk(confirmedPayload, 'confirmed');assert.equal(await bulkKg(),10);
+const shippingPayload = payload(2,2);
+await expectError(() => bulk([shippingPayload[0],{...shippingPayload[1],carrier:''}], 'shipped'), '배송 방법');
+assert.ok((await bulkState()).every(o => o.status === 'confirmed' && o.version === 2));
+await bulk(shippingPayload, 'shipped');await bulk(shippingPayload, 'shipped');
+const shippedRows = await bulkState();
+assert.deepEqual(shippedRows.map(o=>o.tracking_number),['TEST-0','TEST-1']);
+assert.ok(shippedRows.every(o=>o.status==='shipped' && o.version===3 && o.shipped_at));
+await bulk(payload(3,3), 'delivered');
+assert.ok((await bulkState()).every(o=>o.status==='delivered' && o.version===4 && o.delivered_at));
+await bulk(confirmedPayload, 'confirmed'); // Old successful retry never regresses a later state.
+assert.ok((await bulkState()).every(o=>o.status==='delivered' && o.version===4));
+assert.equal(await bulkKg(),10);
+await db.exec('reset role;');
+assert.equal((await db.query('select count(*)::int as n from public.farmer_order_events where order_id=any($1::uuid[])',[bulkOrders.map(o=>o.id)])).rows[0].n,6);
+console.log('PASS: bulk admin authorization, atomic shortage/stale/shipping failures, validation, per-order tracking, all four stages, stock and replay after later transitions.');
+
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
+await expectError(()=>bulk(confirmedPayload,'confirmed'),'관리자 권한');
 console.log('PASS: private data access, server prices, idempotency, stock deduction/restoration, stock shortage, stale edits, shipping/delivery, verified admin allowlist.');
 await db.close();

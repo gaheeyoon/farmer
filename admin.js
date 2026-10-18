@@ -4,7 +4,7 @@
     api = window.FarmerAPI;
   const statuses = {
     pending: "입금 대기",
-    confirmed: "확정 · 발송 대기",
+    confirmed: "입금 확인(배송 준비)",
     shipped: "배송 중",
     delivered: "배송 완료",
     cancelled: "취소",
@@ -26,6 +26,11 @@
     version = 0,
     loading = false;
   const requests = new Map();
+  const selected = new Set();
+  const nextStage = { pending: "confirmed", confirmed: "shipped", shipped: "delivered" };
+  let bulkPending = null, bulkBusy = false;
+  const locked = () => loading || bulkBusy || !!bulkPending;
+  const selectedOrders = () => state.orders.filter(o => selected.has(o.id));
   const requestId = (payload) => {
     const key = JSON.stringify(payload);
     if (!requests.has(key)) requests.set(key, api.uuid());
@@ -50,6 +55,9 @@
     version++;
     state = { summary: null, orders: [], offset: 0, total: 0, current: null };
     requests.clear();
+    bulkPending = null;
+    bulkBusy = false;
+    clearSelection();
     $("orders-body").replaceChildren();
     $("stock-history").replaceChildren();
     $("order-details").replaceChildren();
@@ -63,16 +71,135 @@
     const s = state.summary;
     $("stock-value").textContent = number(s.available_kg) + " kg";
     $("pending-value").textContent = s.pending + "건";
-    $("confirmed-value").textContent = "발송 대기 " + s.confirmed + "건";
+    $("confirmed-value").textContent = s.confirmed + "건";
     $("shipped-value").textContent = s.shipped + "건";
     $("delivered-value").textContent = s.delivered + "건";
     $("updated-at").textContent = "최근 확인 " + date(new Date().toISOString());
+    document.querySelectorAll("[data-stage]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.stage === $("status-filter").value)));
+  }
+  function clearSelection() {
+    selected.clear();
+    $("bulk-carrier").value = "";
+    $("shipment-inputs").replaceChildren();
+    message("bulk-message", "");
+    renderSelection();
+  }
+  function renderSelection() {
+    const orders = selectedOrders();
+    const same = orders.length > 0 && orders.every(o => o.status === orders[0].status);
+    const target = same ? nextStage[orders[0].status] : null;
+    $("selection-count").textContent = `선택한 주문 ${orders.length}건`;
+    for (const option of $("bulk-status").options) option.disabled = option.value !== target;
+    $("bulk-status").value = target || "";
+    $("bulk-status").disabled = locked() || !target;
+    $("clear-selection").disabled = locked() || !orders.length;
+    $("bulk-submit").disabled = loading || bulkBusy || (!bulkPending && !target);
+    $("bulk-submit").textContent = bulkBusy ? "변경 중…" : bulkPending ? "처리 결과 다시 확인" : "선택 주문 상태 변경";
+    $("bulk-shipping").hidden = target !== "shipped";
+    const oldValues = new Map([...$("shipment-inputs").querySelectorAll("input")].map(i => [i.dataset.orderId, i.value]));
+    $("shipment-inputs").replaceChildren();
+    if (target === "shipped") for (const o of orders) {
+      const row = node("div", undefined, "shipment-row"), label = node("label", o.order_number + " · " + (o.recipient_name || o.customer_name));
+      const input = node("input");
+      input.id = "shipment-" + o.id;
+      input.dataset.orderId = o.id;
+      input.maxLength = 100;
+      input.value = oldValues.get(o.id) ?? o.tracking_number ?? "";
+      input.placeholder = "송장번호";
+      label.htmlFor = input.id;
+      label.append(node("small", "송장번호 · 선택"));
+      row.append(label, input);
+      $("shipment-inputs").append(row);
+    }
+    if (orders.length && !same && !bulkPending) message("bulk-message", "같은 단계의 주문을 선택해 주세요. 위의 단계별 건수를 누르면 해당 주문만 볼 수 있습니다.");
+    updateControls();
+  }
+  function updateControls() {
+    const busy = locked();
+    document.querySelectorAll("[data-stage], #filter-form input, #filter-form select, #filter-form button, .order-link, #refresh, #open-stock").forEach(el => el.disabled = busy);
+    $("previous").disabled = busy || state.offset === 0;
+    $("next").disabled = busy || state.offset + 50 >= state.total;
+    const eligible = state.orders.filter(o => nextStage[o.status]);
+    const count = eligible.filter(o => selected.has(o.id)).length;
+    $("select-all").checked = eligible.length > 0 && count === eligible.length;
+    $("select-all").indeterminate = count > 0 && count < eligible.length;
+    $("select-all").disabled = busy || !eligible.length;
+    document.querySelectorAll("[data-select-order]").forEach(input => {
+      input.checked = selected.has(input.dataset.selectOrder);
+      input.disabled = busy || !nextStage[state.orders.find(o => o.id === input.dataset.selectOrder)?.status];
+      input.closest("tr").classList.toggle("selected", input.checked);
+    });
+    $("bulk-carrier").disabled = busy;
+    $("shipment-inputs").querySelectorAll("input").forEach(input => input.disabled = busy);
+  }
+  async function changeSelectedOrders() {
+    if (loading || bulkBusy) return;
+    if (!bulkPending) {
+      const orders = selectedOrders(), status = $("bulk-status").value;
+      if (!orders.length || !orders.every(o => nextStage[o.status] === status)) return;
+      const carrier = $("bulk-carrier").value.trim();
+      if (status === "shipped" && !carrier) {
+        message("bulk-message", "택배사 또는 배송 방법을 입력해 주세요.", true);
+        $("bulk-carrier").focus();
+        return;
+      }
+      const extra = status === "confirmed"
+        ? `입금을 확인하셨나요? 재고 ${number(orders.reduce((sum, o) => sum + o.weight_grams, 0) / 1000)}kg이 차감됩니다.`
+        : status === "delivered" ? "실제 배송이 완료된 주문인지 확인해 주세요." : "입력한 배송 정보로 발송 처리합니다.";
+      if (!confirm(`${orders.length}건을 ‘${statuses[status]}’ 상태로 변경할까요?\n${extra}`)) return;
+      bulkPending = { p_status: status, p_orders: orders.map(o => ({
+        order_id: o.id, expected_version: o.version, request_id: api.uuid(),
+        carrier: status === "shipped" ? carrier : "",
+        tracking_number: status === "shipped" ? $("shipment-" + o.id).value.trim() : "",
+      })) };
+    }
+    const currentVersion = version, payload = bulkPending;
+    bulkBusy = true;
+    message("bulk-message", "선택한 주문을 변경하고 있습니다.");
+    renderSelection();
+    try {
+      await api.admin("farmer_admin_bulk_status", payload);
+      if (currentVersion !== version) return;
+      bulkPending = null;
+      bulkBusy = false;
+      clearSelection();
+      const success = `${payload.p_orders.length}건을 ‘${statuses[payload.p_status]}’ 상태로 처리했습니다.`;
+      try {
+        await load();
+        if (currentVersion === version) message("dashboard-message", success);
+      } catch {
+        if (currentVersion === version) message("dashboard-message", success + " 목록을 새로고침해 주세요.");
+      }
+    } catch (e) {
+      if (currentVersion !== version) return;
+      if (e.uncertain) {
+        message("bulk-message", "처리 결과를 확인하지 못했습니다. ‘처리 결과 다시 확인’을 눌러 주세요. 같은 요청을 확인하므로 재고가 중복 차감되지 않습니다.", true);
+      } else {
+        bulkPending = null;
+        bulkBusy = false;
+        await load().catch(() => {});
+        if (currentVersion === version) message("dashboard-message", e.message + " 선택한 주문을 확인한 후 다시 시도해 주세요.", true);
+      }
+    } finally {
+      if (currentVersion === version) { bulkBusy = false; renderSelection(); }
+    }
   }
   function renderOrders() {
     $("orders-body").replaceChildren();
     for (const o of state.orders) {
-      const row = node("tr"),
-        first = cell(row);
+      const row = node("tr"), checkCell = cell(row), checkbox = node("input");
+      checkCell.className = "select-cell";
+      checkbox.type = "checkbox";
+      checkbox.dataset.selectOrder = o.id;
+      checkbox.setAttribute("aria-label", o.order_number + " 선택");
+      checkbox.addEventListener("change", () => {
+        if (locked()) return;
+        checkbox.checked ? selected.add(o.id) : selected.delete(o.id);
+        message("bulk-message", "");
+        renderSelection();
+      });
+      checkCell.append(checkbox);
+      const first = cell(row);
       const link = node("button", o.order_number, "order-link");
       link.type = "button";
       link.addEventListener("click", () => openOrder(o));
@@ -95,10 +222,12 @@
       : "총 0건";
     $("previous").disabled = state.offset === 0;
     $("next").disabled = state.offset + 50 >= state.total;
+    renderSelection();
   }
   async function load() {
-    if (loading) return;
+    if (locked()) return;
     loading = true;
+    clearSelection();
     const currentVersion = version;
     $("refresh").disabled = true;
     try {
@@ -133,7 +262,7 @@
       throw e;
     } finally {
       loading = false;
-      $("refresh").disabled = false;
+      renderSelection();
     }
   }
   async function showDashboard() {
@@ -188,6 +317,7 @@
     }
   }
   function openOrder(o) {
+    if (locked()) return;
     state.current = o;
     $("order-heading").textContent = o.order_number;
     $("order-details").replaceChildren();
@@ -218,7 +348,7 @@
       ["배송지", [o.address, o.address_detail].filter(Boolean).join(" ")],
       ["배송 메모", o.memo || "없음"],
       ["접수", date(o.created_at)],
-      ["확정", date(o.confirmed_at)],
+      ["입금 확인", date(o.confirmed_at)],
       ["발송", date(o.shipped_at)],
       ["배송 완료", date(o.delivered_at)],
       ["배송 방법", o.carrier || "—"],
@@ -233,7 +363,7 @@
     const choices =
       {
         pending: [
-          ["confirmed", "입금 확인 · 주문 확정"],
+          ["confirmed", "입금 확인(배송 준비)"],
           ["cancelled", "주문 취소"],
         ],
         confirmed: [
@@ -254,7 +384,7 @@
     }
     $("order-change-help").textContent =
       o.status === "pending"
-        ? `확정하면 재고 ${number(o.weight_grams / 1000)}kg이 차감됩니다.`
+        ? `입금을 확인하면 재고 ${number(o.weight_grams / 1000)}kg이 차감됩니다.`
         : o.status === "confirmed"
           ? `배송 전 취소하면 재고 ${number(o.weight_grams / 1000)}kg이 복구됩니다.`
           : "";
@@ -317,19 +447,41 @@
     message("login-message", "로그아웃했습니다.");
   });
   $("refresh").addEventListener("click", () => load().catch(() => {}));
+  $("select-all").addEventListener("change", () => {
+    if (locked()) return;
+    const checked = $("select-all").checked;
+    selected.clear();
+    if (checked) state.orders.filter(o => nextStage[o.status]).forEach(o => selected.add(o.id));
+    message("bulk-message", "");
+    renderSelection();
+  });
+  $("clear-selection").addEventListener("click", () => { if (!locked()) clearSelection(); });
+  $("bulk-submit").addEventListener("click", changeSelectedOrders);
+  $("bulk-carrier").addEventListener("input", () => { if (!locked()) message("bulk-message", ""); });
+  function filterOrders() {
+    if (locked()) return;
+    state.offset = 0;
+    load().catch(() => {});
+  }
+  document.querySelectorAll("[data-stage]").forEach(button => button.addEventListener("click", () => {
+    if (locked()) return;
+    $("status-filter").value = button.dataset.stage;
+    filterOrders();
+  }));
+  $("status-filter").addEventListener("change", filterOrders);
   $("filter-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    if (loading) return;
+    if (locked()) return;
     state.offset = 0;
     load().catch(() => {});
   });
   $("previous").addEventListener("click", () => {
-    if (loading) return;
+    if (locked()) return;
     state.offset = Math.max(0, state.offset - 50);
     load().catch(() => {});
   });
   $("next").addEventListener("click", () => {
-    if (loading) return;
+    if (locked()) return;
     state.offset += 50;
     load().catch(() => {});
   });
