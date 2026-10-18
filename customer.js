@@ -58,6 +58,23 @@
     input.setSelectionRange(pos, pos);
   }
   const validPhone = (value) => /^0\d{8,10}$/.test(value.replace(/\D/g, ""));
+  const ordererStorageKey = "farmer-orderer:v1";
+  function saveOrderer() {
+    const name = $("customer").value.trim().slice(0, 40);
+    const phone = phoneDigits($("phone").value);
+    try {
+      if (name || phone) localStorage.setItem(ordererStorageKey, JSON.stringify({ name, phone }));
+      else localStorage.removeItem(ordererStorageKey);
+    } catch { /* Ordering remains available when browser storage is blocked. */ }
+  }
+  function restoreOrderer() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(ordererStorageKey) || "null");
+      if (!saved || typeof saved !== "object" || Array.isArray(saved)) return;
+      if (typeof saved.name === "string") $("customer").value = saved.name.slice(0, 40);
+      if (typeof saved.phone === "string") $("phone").value = formatPhone(saved.phone);
+    } catch { /* Ignore unavailable storage or an invalid saved value. */ }
+  }
   const deliveries = () =>
     cards().map((c) =>
       Object.fromEntries(
@@ -400,6 +417,7 @@
   form.addEventListener("input", (e) => {
     if (locked) return;
     if (e.target.matches("[data-phone]")) phoneInput(e.target, e);
+    if (e.target.id === "customer" || e.target.id === "phone") saveOrderer();
     if (e.target.matches('[data-field="postal_code"]'))
       e.target.value = e.target.value.replace(/\D/g, "").slice(0, 5);
     stale();
@@ -408,6 +426,11 @@
     $("form-errors").hidden = true;
   });
   form.addEventListener("change", (e) => {
+    if (!locked && (e.target.id === "customer" || e.target.id === "phone")) {
+      if (e.target.id === "phone") e.target.value = formatPhone(e.target.value);
+      saveOrderer();
+      stale();
+    }
     if (!locked && e.target.matches("select")) {
       stale();
       totals();
@@ -514,6 +537,7 @@
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (receipt || submitting || (locked && !prepared)) return;
+    saveOrderer();
     if (!prepared && !validate()) return;
     submitting = true;
     const expectedTotal = displayedTotal;
@@ -695,6 +719,7 @@
   function reset() {
     lock(false);
     form.reset();
+    restoreOrderer();
     requests.clear();
     $("deliveries").replaceChildren();
     addCard();
@@ -717,6 +742,7 @@
   addEventListener("pageshow", (e) => {
     if (e.persisted) {reset();$("lookup-form").reset();}
   });
+  restoreOrderer();
   addCard();
   catalog();
 })();
