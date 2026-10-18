@@ -78,7 +78,10 @@
       link.addEventListener("click", () => openOrder(o));
       first.append(link, node("small", date(o.created_at)));
       const customer = cell(row, o.customer_name);
-      customer.append(node("small", o.phone));
+      customer.append(
+        node("small", o.phone),
+        node("small", "받는 분: " + (o.recipient_name || o.customer_name)),
+      );
       const item = cell(row, o.product_name + " × " + o.quantity);
       item.append(node("small", "총 " + number(o.weight_grams / 1000) + " kg"));
       cell(row, number(o.total) + "원");
@@ -191,6 +194,15 @@
     const details = [
       ["상태", statuses[o.status]],
       ["주문자", o.customer_name],
+      ["받는 분", o.recipient_name || o.customer_name],
+      ["받는 분 연락처", o.recipient_phone || o.phone],
+      ["우편번호", o.postal_code || "기존 주문 · 미입력"],
+      [
+        "함께 접수한 주문",
+        o.batch_id
+          ? o.batch_id.slice(0, 8) + " · 배송지 " + o.delivery_index
+          : "단일 주문",
+      ],
       ["연락처", o.phone],
       [
         "상품",

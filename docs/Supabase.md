@@ -10,14 +10,19 @@
 
 ## 데이터
 
-- `farmer_orders`: 주문 당시 상품·가격·할인·배송비, 연락처·주소, 상태, 동의·확정·발송·완료 시각
+- `farmer_orders`: 주문 당시 상품·가격·할인·배송비, 주문자 및 받는 분 연락처·우편번호·주소, 묶음 번호·배송지 순서, 상태, 동의·확정·발송·완료 시각
 - `farmer_inventory`: 판매 가능 재고. 내부 단위는 정수 g, 표시 단위는 kg
 - `farmer_stock_events`: 재고 변동, 이유, 잔고, 실행 관리자
 - `farmer_order_events`: 주문 상태 변경 이력, 실행 관리자
 - `farmer_products`: 상품별 중량·가격·판매 여부
 - `farmer_private.admin_emails`, `discount_codes`: 관리자 허용 목록과 할인코드
+- `farmer_private.order_batches`: 여러 배송지의 요청 UUID, 입력 지문, 접수 결과. 직접 조회는 차단합니다.
 
 상태 변경과 재고 변경은 한 트랜잭션으로 저장합니다. 주문·재고 잠금으로 동시 확정 시 초과 차감을 막습니다. 요청 UUID는 동일 요청 재시도를 구분하며, 편집 버전은 오래된 화면에서 덮어쓰는 일을 막습니다.
+
+`farmer_quote_batch`는 최대 20개 배송지를 계산하고 전체에 할인 한 번, 배송지별 배송비를 적용합니다. `farmer_submit_batch`는 모든 배송지를 한 트랜잭션으로 저장합니다. 한 배송지가 잘못되면 전체가 롤백됩니다. 같은 UUID의 재시도는 기존 결과를 반환하고, 다른 내용으로 UUID를 재사용하면 거부합니다. 같은 주문자라도 새 UUID로 별도 주문을 접수할 수 있습니다. 기존 단일 배송지 RPC는 이전 사이트 버전과의 호환을 위해 유지합니다.
+
+주소 검색은 [카카오 공식 우편번호 SDK](https://postcode.map.kakao.com/guide)를 필요할 때만 불러옵니다. API 키가 필요 없는 검색 서비스이며, 우편번호와 주소를 반환받은 뒤 상세 주소는 고객이 입력합니다. 검색 실패 시 수동 입력 경로도 제공합니다.
 
 ## 보안 검사
 
@@ -26,17 +31,19 @@
 Supabase Advisor의 다음 항목은 이 구조에서 의도된 구성에 대한 검토 항목입니다. 무조건 허용 정책을 추가하거나 관리자 검사를 제거하지 마세요.
 
 - [RLS enabled, no policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy): 테이블 직접 접근을 전부 거부하고 명시된 함수만 사용합니다.
-- [Anonymous SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable): 비로그인 고객에게 필요한 세 함수만 공개했습니다.
+- [Anonymous SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable): 비로그인 고객에게 필요한 상품 조회, 단일·묶음 금액 계산 및 접수 함수만 공개했습니다.
 - [Authenticated SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable): 관리자 함수의 실행 권한만으로는 부족하며 내부 관리자 확인을 통과해야 합니다.
-- [Unindexed foreign keys](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys): 상품 외래키 인덱스를 추가했습니다. 신규 데이터베이스의 unused index 안내는 운영 후 사용량을 보고 판단합니다.
+- [Unindexed foreign keys](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys): 상품 및 주문 묶음 외래키 인덱스를 추가했습니다. 신규 데이터베이스의 unused index 안내는 운영 후 사용량을 보고 판단합니다.
+
+2026-10-18 Advisor는 [유출 비밀번호 차단](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)이 꺼져 있다는 항목도 보고했습니다. 계정 인증 설정은 이번 주문서 수정에서 변경하지 않았으며, 관리자가 Supabase Auth 설정에서 별도로 검토할 수 있습니다.
 
 ## 검증 범위
 
 2026-10-18 기준:
 
-- PGlite PostgreSQL에서 실제 migration을 실행하고 비로그인/비관리자/미인증 관리자 접근 거부, 가격 변조 거부, 할인·수량 검사, 접수 중복 방지, 재고 부족·버전 충돌, 취소 복구, 발송·배송 완료 및 재고 조정을 검증했습니다.
-- 운영 API의 상품·할인 계산을 조회했습니다. 5kg 1개 + GOGUMA = 21,500원이며, 익명 주문 테이블 조회와 관리자 함수 호출은 차단됩니다.
+- PGlite PostgreSQL에서 실제 migration을 실행하고 비로그인/비관리자/미인증 관리자 접근 거부, 가격 변조 거부, 할인·수량 검사, 접수 중복 방지, 재고 부족·버전 충돌, 취소 복구, 발송·배송 완료 및 재고 조정을 검증했습니다. 여러 배송지의 할인 한 번 적용, 배송지별 배송비, 전체 롤백, 동일 요청 재시도, 같은 주문자의 추가 주문과 우편번호·받는 분 정보도 검사했습니다.
+- 운영 API의 상품·할인 계산을 조회했습니다. 5kg 1개 + GOGUMA = 21,500원이며, 익명 주문 테이블 조회와 관리자 함수 호출은 차단됩니다. 두 배송지(2kg × 1, 5kg × 2)의 금액은 50,000 + 7,000 − 2,000 = 55,000원으로 확인했습니다.
 - 브라우저에서 실제 운영 상품·금액 조회를 사용했습니다. 주문 제출과 관리자 변경은 응답을 모의해 검사했으며 운영 데이터에 검증용 주문을 남기지 않았습니다.
-- 390px 모바일과 1440px 데스크톱 표시, 주문 입력 변경 후 재확인, 연결 실패 시 같은 UUID 재시도, 고객 텍스트의 스크립트 실행 방지, 로그아웃 시 화면 정보 제거를 확인했습니다.
+- 320·390·768·1440px 화면 표시, 주문 입력 변경 후 재확인, 연결 실패 시 같은 UUID 재시도, 고객 텍스트의 스크립트 실행 방지, 로그아웃 시 화면 정보 제거를 확인했습니다. 실제 카카오 검색으로 우편번호·주소 선택, 반복 검색, 검색 연결 실패 후 수동 입력, 자동 전화번호 표시와 받는 분 추가·삭제도 확인했습니다.
 
 실제 결제, 택배사 연동, 주문 알림은 검증 범위에 포함되지 않으며 구현되어 있지 않습니다. 재고 화면은 자동 갱신이 아니라 새로고침 버튼으로 최신 상태를 조회합니다.

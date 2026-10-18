@@ -54,6 +54,28 @@ await adjust();await adjust();assert.equal((await rpc('select public.farmer_admi
 await db.exec(`reset role;select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);set role authenticated;`);
 await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 await expectError(()=>db.query('select * from public.farmer_orders'),'permission denied');
+// Multi-destination checkout: one discount, per-destination shipping and atomic retry.
+await db.exec(`reset role;update public.farmer_inventory set available_grams=100000;`);
+await anon();
+const delivery=(product_id,quantity,name='받는 분')=>({product_id,quantity,recipient_name:name,recipient_phone:'010-1111-2222',postal_code:'04524',address:'서울 중구 세종대로 110',address_detail:'검증용',memo:''});
+const ds=[delivery('hopungmi-2kg',1),delivery('hopungmi-5kg',2,'다른 받는 분')];
+const quote=await rpc('select public.farmer_quote_batch($1,$2) as result',[JSON.stringify(ds),'GOGUMA']);
+assert.equal(quote.total,55000);assert.equal(quote.shipping_fee,7000);assert.equal(quote.discount_amount,2000);assert.equal(quote.weight_grams,12000);
+const batch=(id,items=ds,total=55000)=>rpc('select public.farmer_submit_batch($1,$2,$3,$4,$5,$6,$7) as result',[id,'주문자','01012345678',JSON.stringify(items),'GOGUMA',total,true]);
+const bid='40000000-0000-0000-0000-000000000001';
+const receipt=await batch(bid);assert.equal(receipt.orders.length,2);assert.equal(receipt.total,55000);assert.deepEqual(await batch(bid),receipt);
+await expectError(()=>batch(bid,[ds[0],{...ds[1],postal_code:'12345'}]),'이미 사용');
+await expectError(()=>batch('40000000-0000-0000-0000-000000000002',[ds[0],{...ds[1],postal_code:''}]),'우편번호');
+await expectError(()=>batch('40000000-0000-0000-0000-000000000003',ds,1),'판매 금액');
+await admin();
+let batches=(await rpc('select public.farmer_admin_orders() as result')).orders.filter(o=>o.batch_id);
+assert.equal(batches.length,2);assert.equal(batches[0].postal_code,'04524');assert.equal(batches[0].recipient_phone,'01011112222');
+assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,100);
+await change(batches[0].id,'confirmed',1,'40000000-0000-0000-0000-000000000004');
+assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,100-batches[0].weight_grams/1000);
+await anon();await batch('40000000-0000-0000-0000-000000000005');
+await expectError(()=>db.query('select * from farmer_private.order_batches'),'permission denied');
+console.log('PASS: multiple recipients/postcodes, one discount, atomic failure, batch retry, repeat customer orders and independent fulfillment.');
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 console.log('PASS: private data access, server prices, idempotency, stock deduction/restoration, stock shortage, stale edits, shipping/delivery, verified admin allowlist.');
