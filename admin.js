@@ -55,6 +55,7 @@
   function clearPrivateView() {
     version++;
     window.FarmerGifts.clear();
+    window.FarmerFinance.clear();
     state = { summary: null, orders: [], offset: 0, total: 0, current: null };
     requests.clear();
     bulkPending = null;
@@ -571,6 +572,7 @@
       $("stock-submit").disabled = false;
     }
   });
+  window.FarmerFinance.init(() => !locked());
   if (!api?.ready()) {
     message("login-message", "관리 시스템 연결을 준비하고 있습니다.", true);
     $("login-button").disabled = true;

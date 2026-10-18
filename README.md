@@ -17,6 +17,7 @@ python3 -m http.server 8000
 - `index.html`: 브랜드 이야기, 상품, 주문서
 - `customer.js`: 상품 조회·할인 확인·주문 접수·기존 주문 조회
 - `admin.html`, `admin.js`, `admin-gifts.js`: 관리자 로그인, 일반·선물 주문과 배송·재고 관리
+- `admin-finance.js`, `admin-finance.css`: 관리자 전용 손익분석과 수입·지출 장부
 - `farmer-api.js`: Supabase 통신과 관리자 세션
 - `farmer-config.js`: 프로젝트 URL과 공개 publishable key
 - `payment-config.js`: 고객에게 안내하는 입금용 은행·계좌·예금주 설정입니다. 주문 접수 후 입금 안내에 표시되며 배포 누락을 막기 위해 저장소에 포함합니다. `payment-config.example.js`는 다른 계좌로 설정할 때 참고하는 빈 예시입니다.

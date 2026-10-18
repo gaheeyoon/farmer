@@ -535,6 +535,7 @@
         }
       }
     </style>
+    <link rel="stylesheet" href="admin-finance.css?v=20261018-finance1" />
   </head>
   <body>
     <header>
@@ -586,6 +587,8 @@
         </p>
       </section>
       <section id="dashboard" hidden>
+        <nav class="admin-sections" aria-label="관리 메뉴"><button type="button" data-admin-view="operations" aria-pressed="true">주문 · 재고</button><button type="button" data-admin-view="finance" aria-pressed="false">손익분석</button></nav>
+        <div id="operations-panel">
         <div class="topline">
           <div>
             <p class="eyebrow">고구맙습니다 · 오늘의 농장</p>
@@ -726,8 +729,33 @@
             </table>
           </div>
         </section>
+        </div>
+        <section id="finance-panel" hidden aria-labelledby="finance-heading">
+          <div class="topline"><div><p class="eyebrow">고구맙습니다 · 농사 장부</p><h1 id="finance-heading">고구마 판매 손익분석</h1><p class="sub">수입과 지출을 모아, 한 해의 농사를 숫자로 돌아봅니다.</p></div><div class="actions"><button class="button" id="finance-add" type="button">수입·지출 추가</button><button class="button secondary" id="finance-refresh" type="button">새로고침</button></div></div>
+          <form class="finance-filters" id="finance-filter"><div class="year"><label for="finance-year">연도</label><input type="number" id="finance-year" min="2000" max="2100" required /></div><div class="kind"><label for="finance-kind">내역 구분</label><select id="finance-kind"><option value="">수입·지출 전체</option><option value="income">수입</option><option value="expense">지출</option></select></div><div class="search"><label for="finance-search">검색</label><input id="finance-search" maxlength="100" placeholder="항목·거래처·메모" /></div><button class="button secondary" type="submit">조회</button></form>
+          <p id="finance-message" class="message" role="status"></p>
+          <div id="finance-data" hidden>
+            <p class="finance-note" id="finance-period"></p>
+            <div class="finance-cards"><article class="finance-card"><p>주문 수입</p><strong id="finance-order-income">—</strong><small id="finance-order-meta"></small></article><article class="finance-card"><p>추가 수입</p><strong id="finance-manual-income">—</strong><small>현장 판매 등 직접 기록</small></article><article class="finance-card"><p>기록한 지출</p><strong id="finance-expense">—</strong><small>농사·포장·배송 비용</small></article><article class="finance-card profit"><p>기록 기준 손익</p><strong id="finance-profit">—</strong><small>전체 수입 − 기록한 지출</small></article></div>
+            <p class="finance-note">주문 수입은 입금 확인·배송 중·배송 완료인 일반 주문의 실제 주문금액을 입금 확인일 기준으로 집계합니다. 선물·취소·입금 대기 주문은 제외합니다. 실제 택배비와 포장비 등은 지출로 추가해 주세요.</p><p class="finance-note" id="finance-pending"></p>
+            <div class="finance-split"><section class="panel" aria-labelledby="finance-month-title"><h2 id="finance-month-title">월별 수입·지출</h2><div class="finance-legend" aria-hidden="true"><span>수입</span><span>지출</span></div><div id="finance-months" class="finance-months" aria-hidden="true"></div><div class="finance-month-table table-scroll"><table><caption class="sr-only">거래가 있는 달의 수입, 지출 및 손익</caption><thead><tr><th>월</th><th>수입</th><th>지출</th><th>손익</th></tr></thead><tbody id="finance-month-rows"></tbody></table></div></section><section class="panel" aria-labelledby="finance-category-title"><h2 id="finance-category-title">어디에 썼을까요?</h2><div id="finance-categories" class="finance-categories"></div></section></div>
+            <section class="panel"><div class="topline"><h2>수입·지출 내역</h2><p class="finance-note" id="finance-count"></p></div><div class="table-scroll"><table class="finance-table"><caption class="sr-only">선택한 연도와 조회 조건의 수입·지출 내역</caption><thead><tr><th>날짜</th><th>구분</th><th>분류</th><th>항목·상세</th><th>거래처·지급 대상</th><th class="finance-amount">금액</th><th>관리</th></tr></thead><tbody id="finance-rows"></tbody></table></div><p class="empty" id="finance-empty" hidden>조건에 맞는 내역이 없습니다.</p><div class="pagination"><span id="finance-page"></span><div><button class="button secondary" id="finance-prev" type="button">이전</button><button class="button secondary" id="finance-next" type="button">다음</button></div></div></section>
+          </div>
+        </section>
       </section>
     </main>
+    <dialog id="finance-dialog" aria-labelledby="finance-dialog-title">
+      <div class="dialog-head"><h2 id="finance-dialog-title">수입·지출 추가</h2><button class="close" id="finance-close" type="button" aria-label="수입·지출 입력 닫기">×</button></div>
+      <form id="finance-form"><fieldset id="finance-fields"><legend class="sr-only">수입·지출 정보</legend>
+        <div class="row"><div class="field"><label for="finance-date">날짜 *</label><input id="finance-date" type="date" min="2000-01-01" max="2100-12-31" required /></div><div class="field"><label for="finance-direction">구분 *</label><select id="finance-direction"><option value="expense">지출</option><option value="income">추가 수입</option></select></div></div>
+        <p class="finance-form-help" id="finance-income-help" hidden>사이트 주문 수입은 자동 집계됩니다. 현장 판매 등 별도 수입만 입력해 주세요.</p>
+        <div class="row"><div class="field"><label for="finance-category">분류 *</label><input id="finance-category" list="finance-category-options" maxlength="40" required /><datalist id="finance-category-options"><option value="농기계"></option><option value="모종"></option><option value="인건비"></option><option value="농자재"></option><option value="포장비"></option><option value="배송비"></option><option value="현장 판매"></option><option value="기타"></option></datalist></div><div class="field"><label for="finance-party">거래처·지급 대상</label><input id="finance-party" maxlength="80" /></div></div>
+        <div class="field"><label for="finance-title">항목 *</label><input id="finance-title" maxlength="120" required placeholder="예: 택배비, 포장 상자" /></div>
+        <div class="field"><label for="finance-amount">금액 (원) *</label><input id="finance-amount" type="number" min="1" max="1000000000" step="1" inputmode="numeric" required /></div>
+        <details id="finance-calculation"><summary>수량·단가로 계산하기 (선택)</summary><div class="row"><div class="field"><label for="finance-quantity">수량</label><input id="finance-quantity" type="number" min="0.001" max="999999" step="0.001" inputmode="decimal" /></div><div class="field"><label for="finance-unit-price">단가 (원)</label><input id="finance-unit-price" type="number" min="0" max="1000000000" step="1" inputmode="numeric" /></div></div><p class="finance-form-help">수량과 단가를 모두 입력하면 금액을 자동 계산합니다.</p></details>
+        <div class="field"><label for="finance-note">규격·메모</label><textarea id="finance-note" maxlength="1000" rows="3"></textarea></div>
+      </fieldset><p class="message" id="finance-form-message" role="status"></p><div class="actions finance-dialog-actions"><button class="button danger" id="finance-delete" type="button" hidden>삭제</button><button class="button secondary" id="finance-cancel" type="button">취소</button><button class="button" id="finance-save" type="submit">저장</button></div></form>
+    </dialog>
     <dialog id="gift-dialog" aria-labelledby="gift-heading">
       <div class="dialog-head">
         <div><p class="eyebrow">고마운 분들께 보내는 선물</p><h2 id="gift-heading">선물 주문 등록</h2></div>
@@ -848,6 +876,7 @@
     <script src="farmer-config.js"></script>
     <script src="farmer-api.js?v=20261018-session1"></script>
     <script src="admin-gifts.js?v=20261018-session1"></script>
-    <script src="admin.js?v=20261018-session1"></script>
+    <script src="admin-finance.js?v=20261018-finance1"></script>
+    <script src="admin.js?v=20261018-finance1"></script>
   </body>
 </html>

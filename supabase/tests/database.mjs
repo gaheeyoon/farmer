@@ -196,6 +196,7 @@ await expectError(()=>gift(),'permission denied');
 await expectError(()=>giftList(),'permission denied');
 await db.exec(`reset role;select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);set role authenticated;`);
 await expectError(()=>gift(),'관리자 권한');
+await expectError(()=>db.query('select public.farmer_admin_finance_report(2042)'),'관리자 권한');
 await expectError(()=>giftList(),'관리자 권한');
 await db.exec('reset role;update public.farmer_inventory set available_grams=8000;');await admin();
 const saleCount=(await giftList('sale')).total;
@@ -242,6 +243,9 @@ assert.equal((await giftList('gift','delivered')).orders[0].tracking_number,'GIF
 assert.equal(await bulkKg(),6);assert.deepEqual(await gift(),giftReceipt);assert.equal(await bulkKg(),6);
 assert.equal((await giftList()).total,2);
 console.log('PASS: gift authorization, zero charges, atomic stock allocation, input validation, safe retries, gift filters, public lookup exclusion, cancellation restore and bulk delivery.');
+
+const {verifyFinance}=await import('./finance.mjs');
+await verifyFinance({db,rpc,admin,anon,expectError});
 
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
