@@ -9,6 +9,7 @@
     delivered: "배송 완료",
     cancelled: "취소",
   };
+  const statusText = o => o.order_kind === "gift" && o.status === "confirmed" ? "배송 준비" : statuses[o.status];
   const number = (n) =>
     Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
   const date = (v) =>
@@ -53,6 +54,7 @@
   };
   function clearPrivateView() {
     version++;
+    window.FarmerGifts.clear();
     state = { summary: null, orders: [], offset: 0, total: 0, current: null };
     requests.clear();
     bulkPending = null;
@@ -62,6 +64,7 @@
     $("stock-history").replaceChildren();
     $("order-details").replaceChildren();
     $("search").value = "";
+    $("kind-filter").value = "";
     $("dashboard").hidden = true;
     $("logout").hidden = true;
     $("login-panel").hidden = false;
@@ -74,7 +77,7 @@
     $("confirmed-value").textContent = s.confirmed + "건";
     $("shipped-value").textContent = s.shipped + "건";
     $("delivered-value").textContent = s.delivered + "건";
-    $("updated-at").textContent = "최근 확인 " + date(new Date().toISOString());
+    $("updated-at").textContent = "전체 주문 기준 · 최근 확인 " + date(new Date().toISOString());
     document.querySelectorAll("[data-stage]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.stage === $("status-filter").value)));
   }
   function clearSelection() {
@@ -116,7 +119,7 @@
   }
   function updateControls() {
     const busy = locked();
-    document.querySelectorAll("[data-stage], #filter-form input, #filter-form select, #filter-form button, .order-link, #refresh, #open-stock").forEach(el => el.disabled = busy);
+    document.querySelectorAll("[data-stage], #filter-form input, #filter-form select, #filter-form button, .order-link, #refresh, #open-stock, #open-gift").forEach(el => el.disabled = busy);
     $("previous").disabled = busy || state.offset === 0;
     $("next").disabled = busy || state.offset + 50 >= state.total;
     const eligible = state.orders.filter(o => nextStage[o.status]);
@@ -204,6 +207,7 @@
       link.type = "button";
       link.addEventListener("click", () => openOrder(o));
       first.append(link, node("small", date(o.created_at)));
+      if (o.order_kind === "gift") link.after(node("span", "선물 · 무상", "badge gift"));
       const customer = cell(row, o.customer_name);
       customer.append(
         node("small", o.phone),
@@ -211,8 +215,8 @@
       );
       const item = cell(row, o.product_name + " × " + o.quantity);
       item.append(node("small", "총 " + number(o.weight_grams / 1000) + " kg"));
-      cell(row, number(o.total) + "원");
-      cell(row).append(node("span", statuses[o.status], "badge " + o.status));
+      cell(row, o.order_kind === "gift" ? "0원 · 무상" : number(o.total) + "원");
+      cell(row).append(node("span", statusText(o), "badge " + o.status));
       cell(row, date(o.delivered_at));
       $("orders-body").append(row);
     }
@@ -233,10 +237,11 @@
     try {
       const [summary, result, history] = await Promise.all([
         api.admin("farmer_admin_summary"),
-        api.admin("farmer_admin_orders", {
+        api.admin("farmer_admin_order_list", {
           p_status: $("status-filter").value,
           p_search: $("search").value.trim(),
           p_offset: state.offset,
+          p_kind: $("kind-filter").value,
         }),
         api.admin("farmer_admin_stock_history"),
       ]);
@@ -322,7 +327,8 @@
     $("order-heading").textContent = o.order_number;
     $("order-details").replaceChildren();
     const details = [
-      ["상태", statuses[o.status]],
+      ["주문 구분", o.order_kind === "gift" ? "선물 · 무상 발송" : "일반 주문"],
+      ["상태", statusText(o)],
       ["주문자", o.customer_name],
       ["받는 분", o.recipient_name || o.customer_name],
       ["받는 분 연락처", o.recipient_phone || o.phone],
@@ -333,12 +339,12 @@
           ? o.batch_id.slice(0, 8) + " · 배송지 " + o.delivery_index
           : "단일 주문",
       ],
-      ["연락처", o.phone],
+      ["연락처", o.phone || "—"],
       [
         "상품",
         `${o.product_name} × ${o.quantity} · 총 ${number(o.weight_grams / 1000)}kg`,
       ],
-      ["주문 금액", number(o.total) + "원"],
+      ["주문 금액", o.order_kind === "gift" ? "0원 · 상품·배송비 청구 없음" : number(o.total) + "원"],
       [
         "할인",
         o.discount_code
@@ -348,7 +354,7 @@
       ["배송지", [o.address, o.address_detail].filter(Boolean).join(" ")],
       ["배송 메모", o.memo || "없음"],
       ["접수", date(o.created_at)],
-      ["입금 확인", date(o.confirmed_at)],
+      [o.order_kind === "gift" ? "배송 준비" : "입금 확인", date(o.confirmed_at)],
       ["발송", date(o.shipped_at)],
       ["배송 완료", date(o.delivered_at)],
       ["배송 방법", o.carrier || "—"],
@@ -469,6 +475,22 @@
     filterOrders();
   }));
   $("status-filter").addEventListener("change", filterOrders);
+  $("kind-filter").addEventListener("change", filterOrders);
+  $("open-gift").addEventListener("click", () => { if (!locked()) window.FarmerGifts.open(); });
+  window.FarmerGifts.init(async result => {
+    const currentVersion = version;
+    $("kind-filter").value = "gift";
+    $("status-filter").value = "confirmed";
+    $("search").value = "";
+    state.offset = 0;
+    const saved = `선물 주문 ${result.orders.length}건을 등록하고 재고 ${number(result.weight_grams / 1000)}kg을 차감했습니다.`;
+    try {
+      await load();
+      if (currentVersion === version) message("dashboard-message", saved);
+    } catch {
+      if (currentVersion === version) message("dashboard-message", saved + " 목록을 새로고침해 주세요.");
+    }
+  });
   $("filter-form").addEventListener("submit", (e) => {
     e.preventDefault();
     if (locked()) return;

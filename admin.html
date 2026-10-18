@@ -342,6 +342,20 @@
         background: #ede7e4;
         color: #807268;
       }
+      .badge.gift { background: #f1deea; color: var(--purple); margin-left: 8px; }
+      #gift-dialog { width: min(760px, calc(100% - 32px)); }
+      #gift-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+      .gift-card { border: 1px solid var(--line); border-radius: 8px; padding: 20px; margin-top: 20px; }
+      .gift-card h3 { font-size: 17px; }
+      .gift-card .field { margin-top: 14px; }
+      .gift-postcode { display: flex; align-items: end; gap: 10px; }
+      .gift-postcode .field { flex: 1; max-width: 180px; }
+      .gift-postcode .button { min-height: 46px; }
+      .gift-total { display: flex; justify-content: space-between; gap: 15px; padding: 20px 0; margin-top: 20px; border-top: 1px solid var(--line); }
+      .gift-total strong { color: var(--purple); }
+      .gift-search-panel { margin-top: 15px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; }
+      .gift-search-panel > div:last-child { width: 100%; height: 450px; margin-top: 10px; }
+      .toolbar .kind-filter { width: 145px; }
       .pagination {
         display: flex;
         justify-content: space-between;
@@ -491,6 +505,7 @@
         .toolbar .filter {
           width: 100%;
         }
+        .gift-card { padding: 14px; }
         .toolbar .search {
           flex: 1 1 100%;
           max-width: none;
@@ -576,6 +591,7 @@
             <p class="sub" id="updated-at">정보를 불러오는 중입니다.</p>
           </div>
           <div class="actions">
+            <button class="button" id="open-gift" type="button">선물 주문 등록</button>
             <button class="button secondary" id="refresh">새로고침</button
             ><a class="button secondary" href="./" style="text-decoration: none"
               >판매 페이지</a
@@ -605,6 +621,14 @@
         <section class="panel">
           <h2>주문 · 배송 관리</h2>
           <form id="filter-form" class="toolbar">
+            <div class="filter kind-filter">
+              <label for="kind-filter">주문 구분</label>
+              <select id="kind-filter">
+                <option value="">전체 주문</option>
+                <option value="sale">일반 주문</option>
+                <option value="gift">선물 주문</option>
+              </select>
+            </div>
             <div class="filter">
               <label for="status-filter">주문 상태</label
               ><select id="status-filter">
@@ -702,6 +726,47 @@
         </section>
       </section>
     </main>
+    <dialog id="gift-dialog" aria-labelledby="gift-heading">
+      <div class="dialog-head">
+        <div><p class="eyebrow">고마운 분들께 보내는 선물</p><h2 id="gift-heading">선물 주문 등록</h2></div>
+        <button class="close" id="gift-close" type="button" aria-label="선물 주문 닫기">×</button>
+      </div>
+      <p class="sub">받는 분께 상품·배송비를 청구하지 않습니다. 등록하면 재고를 차감하고 배송 준비로 저장합니다.</p>
+      <form id="gift-form">
+        <fieldset id="gift-fields">
+          <legend class="sr-only">선물 상품과 받는 분</legend>
+          <div id="gift-deliveries"></div>
+          <div class="actions"><button type="button" class="button secondary" id="gift-add">받는 분 추가하기</button></div>
+        </fieldset>
+        <div class="gift-total"><span>총 선물 수량 <strong id="gift-weight">—</strong></span><span>받는 분 결제금액 <strong>0원</strong></span></div>
+        <button class="button" id="gift-submit" type="submit">선물 주문 등록</button>
+        <p class="message" id="gift-message" role="status"></p>
+      </form>
+    </dialog>
+    <template id="gift-template">
+      <section class="gift-card">
+        <div class="dialog-head"><h3>받는 분 <span data-gift-number></span></h3><button type="button" class="button secondary" data-gift-remove>삭제</button></div>
+        <div class="row">
+          <div class="field"><label data-gift-label="product_id">상품</label><select data-gift-field="product_id" required></select></div>
+          <div class="field"><label data-gift-label="quantity">수량</label><input data-gift-field="quantity" type="number" min="1" max="99" step="1" value="1" required inputmode="numeric" /></div>
+        </div>
+        <div class="row">
+          <div class="field"><label data-gift-label="recipient_name">받는 분 성함</label><input data-gift-field="recipient_name" maxlength="40" required autocomplete="name" /></div>
+          <div class="field"><label data-gift-label="recipient_phone">연락처</label><input data-gift-field="recipient_phone" type="tel" maxlength="13" required inputmode="tel" placeholder="010-0000-0000" autocomplete="tel-national" /></div>
+        </div>
+        <div class="gift-postcode">
+          <div class="field"><label data-gift-label="postal_code">우편번호</label><input data-gift-field="postal_code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" required autocomplete="postal-code" /></div>
+          <button type="button" class="button secondary" data-gift-search>주소 검색</button>
+        </div>
+        <div class="gift-search-panel" data-gift-search-panel hidden>
+          <div class="dialog-head"><span data-gift-search-status role="status"></span><button type="button" class="close" data-gift-close-search aria-label="주소 검색 닫기">×</button></div>
+          <div data-gift-embed></div>
+        </div>
+        <div class="field"><label data-gift-label="address">주소</label><input data-gift-field="address" minlength="5" maxlength="200" required autocomplete="address-line1" /></div>
+        <div class="field"><label data-gift-label="address_detail">상세 주소 <small>선택</small></label><input data-gift-field="address_detail" maxlength="120" autocomplete="address-line2" /></div>
+        <div class="field"><label data-gift-label="memo">배송 메모 <small>선택</small></label><input data-gift-field="memo" maxlength="300" placeholder="예: 문 앞에 놓아 주세요" /></div>
+      </section>
+    </template>
     <dialog id="order-dialog">
       <div class="dialog-head">
         <h2 id="order-heading">주문 상세</h2>
@@ -780,6 +845,7 @@
     <footer>어쩌다 농부 · 고구맙습니다</footer>
     <script src="farmer-config.js"></script>
     <script src="farmer-api.js"></script>
+    <script src="admin-gifts.js"></script>
     <script src="admin.js"></script>
   </body>
 </html>
