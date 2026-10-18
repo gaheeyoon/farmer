@@ -12,14 +12,14 @@
 python3 -m http.server 8000
 ```
 
-`http://localhost:8000`을 여세요. 배포할 때는 아래 실행 파일들과 별도로 작성한 `payment-config.js`를 같은 폴더에 함께 올립니다.
+`http://localhost:8000`을 여세요. 배포할 때는 아래 실행 파일들과 `payment-config.js`를 같은 폴더에 함께 올립니다.
 
 - `index.html`: 브랜드 이야기, 상품, 주문서
 - `customer.js`: 상품 조회·할인 확인·주문 접수·기존 주문 조회
 - `admin.html`, `admin.js`, `admin-gifts.js`: 관리자 로그인, 일반·선물 주문과 배송·재고 관리
 - `farmer-api.js`: Supabase 통신과 관리자 세션
 - `farmer-config.js`: 프로젝트 URL과 공개 publishable key
-- `payment-config.example.js`: 입금 안내 설정 예시. `payment-config.js`로 복사하고 은행·계좌·예금주를 입력합니다. 실제 계좌 정보는 공개 저장소에서 제외하며 배포 파일에만 포함합니다.
+- `payment-config.js`: 고객에게 안내하는 입금용 은행·계좌·예금주 설정입니다. 주문 접수 후 입금 안내에 표시되며 배포 누락을 막기 위해 저장소에 포함합니다. `payment-config.example.js`는 다른 계좌로 설정할 때 참고하는 빈 예시입니다.
 
 ## 주문과 재고
 
