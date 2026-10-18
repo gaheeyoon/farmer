@@ -15,6 +15,7 @@ python3 -m http.server 8000
 `http://localhost:8000`을 여세요. 배포할 때는 아래 실행 파일들과 `payment-config.js`를 같은 폴더에 함께 올립니다.
 
 - `index.html`: 브랜드 이야기, 상품, 주문서
+- `admin-discounts.js` / `admin-discounts.css`: 비공개 할인 코드 등록·수정·삭제, 활성화, 수량·사용 내역
 - `customer.js`: 상품 조회·할인 확인·주문 접수·기존 주문 조회
 - `admin.html`, `admin.js`, `admin-gifts.js`: 관리자 로그인, 일반·선물 주문과 배송·재고 관리
 - `admin-finance.js`, `admin-finance.css`: 관리자 전용 손익분석과 수입·지출 장부
@@ -62,3 +63,5 @@ npm test
 ```
 
 GitHub에 푸시하는 것만으로 기존 Sites 사이트가 갱신되지는 않습니다. 저장소 관리와 사이트 배포는 별도로 진행합니다.
+
+할인 코드는 관리자 **할인 코드** 메뉴에서 관리합니다. 정액·정률·지정 상품 1개 한도 할인, 전체 사용 횟수 제한 및 무제한을 지원합니다. 코드 목록과 사용 이력은 관리자 전용이며 새로 등록하는 운영 코드는 공개 소스에 포함하지 않습니다.

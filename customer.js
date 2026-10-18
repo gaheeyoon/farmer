@@ -113,6 +113,7 @@
           : 0),
       fee = q?.shipping_fee ?? cards().length * shipping;
     displayedTotal = q?.total ?? subtotal - amount + fee;
+    message("order-payment-note", valid && subtotal > 0 && displayedTotal === 0 ? "할인 적용 후 금액이 0원이면 별도 입금 없이 접수됩니다." : "입금까지 완료해야 주문이 완료됩니다.");
     message("subtotal-amount", valid ? money(subtotal) : "—");
     message("shipping-label", `배송비 · ${cards().length}곳`);
     message("shipping-amount", fee === 0 ? "무료" : money(fee));
@@ -280,6 +281,7 @@
     if (e.target.closest("[data-remove]")) {
       const previous = card.previousElementSibling || card.nextElementSibling;
       card.remove();
+      if (discount) clearDiscount();
       stale();
       refreshCards();
       previous?.querySelector('[data-field="recipient_name"]').focus();
@@ -299,6 +301,7 @@
   $("add-delivery").addEventListener("click", () => {
     if (!locked) {
       addCard(true);
+      if (discount) clearDiscount();
       stale();
     }
   });
@@ -421,7 +424,7 @@
     if (e.target.matches('[data-field="postal_code"]'))
       e.target.value = e.target.value.replace(/\D/g, "").slice(0, 5);
     stale();
-    if (e.target === code) clearDiscount();
+    if (e.target === code || e.target.matches('[data-field="product_id"],[data-field="quantity"]')) clearDiscount();
     totals();
     $("form-errors").hidden = true;
   });
@@ -432,6 +435,7 @@
       stale();
     }
     if (!locked && e.target.matches("select")) {
+      if (e.target.matches('[data-field="product_id"]')) clearDiscount();
       stale();
       totals();
     }
@@ -488,8 +492,11 @@
     const hasAccount = [payment.bank, payment.account, payment.holder].every(
       value => typeof value === "string" && value.trim().length > 0,
     );
-    $("payment-account").hidden = !hasAccount;
-    $("payment-missing").hidden = hasAccount;
+    $("payment-account").hidden = !hasAccount || total === 0;
+    $("payment-missing").hidden = hasAccount || total === 0;
+    message("payment-title", total === 0 ? "결제 안내" : "입금 안내");
+    message("payment-amount-label", total === 0 ? "추가 결제 금액" : "입금하실 금액");
+    message("summary-guide", total === 0 ? "할인이 전액 적용되어 입금하실 금액이 없습니다. 주문 확인 후 배송을 준비합니다." : "입금까지 완료해야 주문이 완료됩니다.");
     message("payment-bank", hasAccount ? payment.bank : "");
     message("payment-number", hasAccount ? payment.account : "");
     message("payment-holder", hasAccount ? "예금주 " + payment.holder : "");

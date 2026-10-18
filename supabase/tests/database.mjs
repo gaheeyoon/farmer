@@ -246,6 +246,8 @@ console.log('PASS: gift authorization, zero charges, atomic stock allocation, in
 
 const {verifyFinance}=await import('./finance.mjs');
 await verifyFinance({db,rpc,admin,anon,expectError});
+const {verifyDiscounts}=await import('./discounts.mjs');
+await verifyDiscounts({db,rpc,admin,anon,expectError});
 
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');

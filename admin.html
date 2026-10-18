@@ -536,6 +536,7 @@
       }
     </style>
     <link rel="stylesheet" href="admin-finance.css?v=20261018-finance1" />
+    <link rel="stylesheet" href="admin-discounts.css?v=20261018-codes1" />
   </head>
   <body>
     <header>
@@ -587,7 +588,7 @@
         </p>
       </section>
       <section id="dashboard" hidden>
-        <nav class="admin-sections" aria-label="관리 메뉴"><button type="button" data-admin-view="operations" aria-pressed="true">주문 · 재고</button><button type="button" data-admin-view="finance" aria-pressed="false">손익분석</button></nav>
+        <nav class="admin-sections" aria-label="관리 메뉴"><button type="button" data-admin-view="operations" aria-pressed="true">주문 · 재고</button><button type="button" data-admin-view="finance" aria-pressed="false">손익분석</button><button type="button" data-admin-view="discounts" aria-pressed="false">할인 코드</button></nav>
         <div id="operations-panel">
         <div class="topline">
           <div>
@@ -730,6 +731,13 @@
           </div>
         </section>
         </div>
+        <section id="discounts-panel" hidden aria-labelledby="discounts-heading">
+          <div class="topline"><div><p class="eyebrow">고구맙습니다 · 할인 코드</p><h1 id="discounts-heading">할인 코드 관리</h1><p class="sub coupon-intro">코드별 할인 혜택과 사용 수량을 관리합니다.</p></div><div class="actions"><button class="button" id="coupon-add" type="button">코드 추가</button><button class="button secondary" id="coupon-refresh" type="button">새로고침</button></div></div>
+          <form id="coupon-filter" class="coupon-toolbar"><div class="field"><label for="coupon-search">코드명 검색</label><input id="coupon-search" maxlength="100" placeholder="코드명을 입력해 주세요" /></div><div class="field"><label for="coupon-status">사용 상태</label><select id="coupon-status"><option value="">전체</option><option value="active">사용 가능</option><option value="inactive">사용 중지</option><option value="exhausted">수량 소진</option><option value="deleted">삭제됨</option></select></div><button class="button secondary" type="submit">조회</button></form>
+          <p id="coupon-message" class="message" role="status"></p>
+          <div id="coupon-data" hidden><div class="coupon-metrics"><span>조회한 코드<strong id="coupon-count"></strong></span></div><section class="panel"><div class="table-scroll"><table class="coupon-table"><caption class="sr-only">할인 코드별 혜택, 발급 수량과 사용 현황</caption><thead><tr><th>코드명</th><th>할인 혜택</th><th>상태</th><th>총 수량</th><th>사용 / 남음</th><th>관리</th></tr></thead><tbody id="coupon-rows"></tbody></table></div><p class="coupon-empty" id="coupon-empty" hidden>등록된 할인 코드가 없습니다.</p><div class="pagination"><span id="coupon-page"></span><div><button class="button secondary" id="coupon-prev" type="button">이전</button><button class="button secondary" id="coupon-next" type="button">다음</button></div></div></section></div>
+          <p class="coupon-note">수량은 배송지 수와 관계없이 주문서 한 번당 1회 사용됩니다. 주문 접수 시 차감되며, 해당 주문서의 모든 배송 건을 취소하면 복원됩니다. 수정·삭제해도 기존 주문의 할인 금액과 사용 이력은 유지됩니다.</p>
+        </section>
         <section id="finance-panel" hidden aria-labelledby="finance-heading">
           <div class="topline"><div><p class="eyebrow">고구맙습니다 · 농사 장부</p><h1 id="finance-heading">고구마 판매 손익분석</h1><p class="sub">수입과 지출을 모아, 한 해의 농사를 숫자로 돌아봅니다.</p></div><div class="actions"><button class="button" id="finance-add" type="button">수입·지출 추가</button><button class="button secondary" id="finance-refresh" type="button">새로고침</button></div></div>
           <form class="finance-filters" id="finance-filter"><div class="year"><label for="finance-year">연도</label><input type="number" id="finance-year" min="2000" max="2100" required /></div><div class="kind"><label for="finance-kind">내역 구분</label><select id="finance-kind"><option value="">수입·지출 전체</option><option value="income">수입</option><option value="expense">지출</option></select></div><div class="search"><label for="finance-search">검색</label><input id="finance-search" maxlength="100" placeholder="항목·거래처·메모" /></div><button class="button secondary" type="submit">조회</button></form>
@@ -744,6 +752,20 @@
         </section>
       </section>
     </main>
+    <dialog id="coupon-dialog" aria-labelledby="coupon-dialog-title">
+      <div class="dialog-head"><h2 id="coupon-dialog-title">할인 코드 추가</h2><button class="close" id="coupon-close" type="button" aria-label="할인 코드 입력 닫기">×</button></div>
+      <form id="coupon-form"><fieldset id="coupon-fields"><legend class="sr-only">할인 코드 설정</legend>
+        <div class="field"><label for="coupon-name">코드명 *</label><input id="coupon-name" maxlength="40" required autocomplete="off" /><p class="coupon-note">한글 사용 가능 · 영문은 대소문자를 구분하지 않습니다.</p></div>
+        <div class="field"><label for="coupon-mode">할인 방식 *</label><select id="coupon-mode"><option value="fixed">주문당 정액 할인</option><option value="product_unit">지정 상품 1개 금액까지 할인</option><option value="percent">주문 상품 금액의 % 할인</option></select></div>
+        <div class="field" id="coupon-product-field" hidden><label for="coupon-product">대상 상품 *</label><select id="coupon-product"></select></div>
+        <div class="field"><label id="coupon-value-label" for="coupon-value">할인 금액 (원) *</label><input id="coupon-value" type="number" min="1" max="100000000" step="1" inputmode="numeric" required /></div>
+        <p class="coupon-editor-help" id="coupon-benefit-help"></p>
+        <label class="coupon-check"><input id="coupon-unlimited" type="checkbox" checked />수량 무제한</label>
+        <div class="field" id="coupon-limit-field" hidden><label for="coupon-limit">전체 사용 가능 횟수 *</label><input id="coupon-limit" type="number" min="1" max="1000000" step="1" inputmode="numeric" /></div>
+        <label class="coupon-check"><input id="coupon-active" type="checkbox" checked />사용 가능</label>
+      </fieldset><p class="message" id="coupon-form-message" role="status"></p><div class="actions"><button class="button danger" id="coupon-delete" type="button" hidden>삭제</button><button class="button secondary" id="coupon-cancel" type="button">취소</button><button class="button" id="coupon-save" type="submit">저장</button></div></form>
+    </dialog>
+    <dialog id="coupon-history-dialog" aria-labelledby="coupon-history-title"><div class="dialog-head"><h2 id="coupon-history-title">코드 사용 내역</h2><button class="close" id="coupon-history-close" type="button" aria-label="코드 사용 내역 닫기">×</button></div><p class="coupon-note" id="coupon-history-note"></p><p class="message" id="coupon-history-message" role="status"></p><div class="coupon-history-list" id="coupon-history-list"></div><div class="pagination"><span id="coupon-history-page"></span><div><button class="button secondary" id="coupon-history-prev" type="button">이전</button><button class="button secondary" id="coupon-history-next" type="button">다음</button></div></div></dialog>
     <dialog id="finance-dialog" aria-labelledby="finance-dialog-title">
       <div class="dialog-head"><h2 id="finance-dialog-title">수입·지출 추가</h2><button class="close" id="finance-close" type="button" aria-label="수입·지출 입력 닫기">×</button></div>
       <form id="finance-form"><fieldset id="finance-fields"><legend class="sr-only">수입·지출 정보</legend>
@@ -876,7 +898,8 @@
     <script src="farmer-config.js"></script>
     <script src="farmer-api.js?v=20261018-session1"></script>
     <script src="admin-gifts.js?v=20261018-session1"></script>
-    <script src="admin-finance.js?v=20261018-finance1"></script>
-    <script src="admin.js?v=20261018-finance1"></script>
+    <script src="admin-finance.js?v=20261018-codes1"></script>
+    <script src="admin-discounts.js?v=20261018-codes1"></script>
+    <script src="admin.js?v=20261018-codes1"></script>
   </body>
 </html>

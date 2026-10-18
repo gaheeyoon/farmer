@@ -60,8 +60,7 @@
   }
   function selectView(view){
     if(!canSwitch()||busy||pending)return;
-    active=view==='finance';$('operations-panel').hidden=active;$('finance-panel').hidden=!active;
-    document.querySelectorAll('[data-admin-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.adminView===view)));
+    active=view==='finance';
     if(active)load();
   }
   function calculation(){
@@ -117,7 +116,6 @@
   }
   function init(allowSwitch){
     canSwitch=allowSwitch;$('finance-year').value=today().slice(0,4);
-    document.querySelectorAll('[data-admin-view]').forEach(b=>b.addEventListener('click',()=>selectView(b.dataset.adminView)));
     $('finance-filter').addEventListener('submit',e=>{e.preventDefault();offset=0;load();});
     $('finance-refresh').addEventListener('click',load);$('finance-add').addEventListener('click',()=>openEntry());
     $('finance-prev').addEventListener('click',()=>{if(!loading){offset=Math.max(0,offset-50);load();}});$('finance-next').addEventListener('click',()=>{if(!loading){offset+=50;load();}});
@@ -131,5 +129,5 @@
       pending={name:'farmer_admin_finance_delete',body:{p_entry_id:editing.id,p_expected_version:editing.version,p_request_id:api.uuid()}};await commitPending();
     });
   }
-  window.FarmerFinance=Object.freeze({init,clear});
+  window.FarmerFinance=Object.freeze({init,clear,show:selectView,canLeave:()=>!busy&&!pending});
 })();
