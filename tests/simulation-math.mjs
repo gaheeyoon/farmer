@@ -14,3 +14,12 @@ assert.throws(()=>calculate({...base,availableKg:-1}));assert.throws(()=>calcula
 console.log('PASS: simulator mixed boxes, existing income/expenses, per-box costs, loss/zero/stock cases, break-even rounding, comparison deltas, clamped prices and invalid/unsafe input.');
 
 assert.deepEqual(planStock(3000),{qty2:0,qty5:600});assert.deepEqual(planStock(2998),{qty2:4,qty5:598});assert.deepEqual(planStock(8),{qty2:4,qty5:0});assert.deepEqual(planStock(1.999),{qty2:0,qty5:0});assert.deepEqual(planStock(2.001),{qty2:1,qty5:0});assert.throws(()=>planStock(-1));
+
+// Gift boxes have zero revenue but consume stock and per-box fulfillment costs.
+r=calculate({...base,giftQty5:10});assert.equal(r.paidBoxes,600);assert.equal(r.giftBoxes,10);assert.equal(r.boxes,610);assert.equal(r.kg,3050);assert.equal(r.revenue,13200000);assert.equal(r.profit,7437380);assert.equal(r.breakEvenAverage,9605);assert.equal(r.averagePrice,22000);assert.equal(r.overStock,true);
+r=calculate({...base,qty5:590,giftQty5:10});assert.equal(r.kg,3000);assert.equal(r.overStock,false);assert.equal(r.profit,7262380);assert.equal(r.shippingCost,2100000);assert.equal(r.packingCost,600000);
+r=calculate({...base,qty5:0,giftQty5:10});assert.equal(r.revenue,0);assert.equal(r.boxes,10);assert.equal(r.kg,50);assert.equal(r.profit,-3062620);assert.equal(r.breakEvenAverage,null);assert.equal(r.averagePrice,null);
+const giftRows=comparison({...base,giftQty5:10});assert.equal(giftRows[3].profit-giftRows[2].profit,600000);assert.equal(giftRows[0].giftBoxes,10);assert.equal(giftRows[0].shippingCost,2135000);
+for(const value of [-1,1.5,NaN,Infinity,1000001,null])assert.throws(()=>calculate({...base,giftQty5:value}));
+assert.equal(calculate({...base,giftQty5:0}).profit,calculate(base).profit);
+console.log('PASS: gifts fixed at zero revenue, paid-only price sensitivity and break-even denominator, combined stock and costs, all-gift cases and gift quantity validation.');
