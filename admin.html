@@ -577,10 +577,12 @@
           </div>
         </form>
         <p class="message" id="login-message" role="status"></p>
+        <button class="button secondary" id="restore-session" type="button" hidden>로그인 상태 다시 확인</button>
         <p class="notice">
           처음이라면 관리자 이메일과 새 비밀번호(12자 이상)를 입력한 뒤 ‘처음
           비밀번호 설정’을 누르세요. 확인 메일의 링크를 누른 후 이 화면에서
-          로그인하면 됩니다. 세션은 이 탭에서만 유지됩니다.
+          로그인하면 됩니다. 이 브라우저에서 로그인 상태를 14일 동안 유지합니다.
+          공용 기기에서는 사용 후 로그아웃해 주세요.
         </p>
       </section>
       <section id="dashboard" hidden>
@@ -844,8 +846,8 @@
     </dialog>
     <footer>어쩌다 농부 · 고구맙습니다</footer>
     <script src="farmer-config.js"></script>
-    <script src="farmer-api.js"></script>
-    <script src="admin-gifts.js"></script>
-    <script src="admin.js"></script>
+    <script src="farmer-api.js?v=20261018-session1"></script>
+    <script src="admin-gifts.js?v=20261018-session1"></script>
+    <script src="admin.js?v=20261018-session1"></script>
   </body>
 </html>

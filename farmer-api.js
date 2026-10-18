@@ -2,9 +2,12 @@
 (() => {
   "use strict";
   const config = window.FARMER_BACKEND || {};
+  const sessionLifetime = 14 * 24 * 60 * 60 * 1000;
+  const storageKey = `farmer-admin-session:${config.url}:v1`;
   let session = null,
     refreshing = null,
-    generation = 0;
+    generation = 0,
+    storageAvailable = true;
   const ready = () =>
     config.enabled === true &&
     /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(config.url || "") &&
@@ -35,7 +38,7 @@
             "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
         );
         error.status = response.status;
-        error.code = result?.code;
+        error.code = result?.code || result?.error_code;
         error.uncertain = response.status >= 500;
         throw error;
       }
@@ -51,55 +54,141 @@
       clearTimeout(timer);
     }
   }
-  function keepSession(value) {
-    if (!value?.access_token) return null;
-    session = { ...value, expires_at: Date.now() + value.expires_in * 1000 };
+  const loginRequired = () => Object.assign(new Error("로그인 유지 기간이 끝났습니다. 다시 로그인해 주세요."), { authRequired: true });
+  function readStored() {
+    if (!storageAvailable) return undefined;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return null;
+      let value;
+      try { value = JSON.parse(raw); } catch { return null; }
+      return value && typeof value.id === "string" &&
+        typeof value.access_token === "string" && value.access_token &&
+        typeof value.refresh_token === "string" && value.refresh_token &&
+        Number.isFinite(value.expires_at) && Number.isFinite(value.deadline)
+        ? value : null;
+    } catch {
+      storageAvailable = false;
+      return undefined;
+    }
+  }
+  function forgetSession(removeStored = true) {
+    generation++;
+    session = null;
+    if (removeStored) {
+      try { localStorage.removeItem(storageKey); } catch { storageAvailable = false; }
+    }
+    window.dispatchEvent(new Event("farmer:session-ended"));
+  }
+  function syncSession() {
+    const saved = readStored();
+    if (saved !== undefined) {
+      if (session && session.id !== saved?.id) forgetSession(false);
+      session = saved;
+    }
+    if (session && session.deadline <= Date.now()) forgetSession();
     return session;
   }
+  function keepSession(value, previous = null) {
+    if (!value?.access_token) return null;
+    if (!value.refresh_token) throw loginRequired();
+    // Persist only the token pair and expiry metadata, never a password or order data.
+    session = {
+      id: previous?.id || crypto.randomUUID(),
+      access_token: value.access_token,
+      refresh_token: value.refresh_token,
+      expires_at: Date.now() + Number(value.expires_in || 3600) * 1000,
+      deadline: previous?.deadline || Date.now() + sessionLifetime,
+    };
+    try { localStorage.setItem(storageKey, JSON.stringify(session)); }
+    catch { storageAvailable = false; }
+    return session;
+  }
+  async function refreshSession() {
+    // Re-read inside the cross-tab lock: another tab may already have rotated the token.
+    const run = async () => {
+      syncSession();
+      if (!session) throw loginRequired();
+      if (session.expires_at > Date.now() + 60000) return;
+      const previous = session, current = generation;
+      try {
+        const value = await request("/auth/v1/token?grant_type=refresh_token", { refresh_token: previous.refresh_token });
+        const saved = readStored();
+        if (current !== generation || (saved !== undefined && saved?.id !== previous.id)) throw loginRequired();
+        if (previous.deadline <= Date.now()) { forgetSession(); throw loginRequired(); }
+        keepSession(value, previous);
+      } catch (error) {
+        if ([400, 401, 403].includes(error.status)) {
+          // Browsers without Web Locks can receive a token rotated by another tab.
+          const saved = readStored();
+          if (saved?.id === previous.id && saved.refresh_token !== previous.refresh_token && saved.expires_at > Date.now() + 60000) {
+            session = saved;
+            return;
+          }
+          if (current === generation && (saved === undefined || saved?.id === previous.id)) forgetSession();
+          throw loginRequired();
+        }
+        // Offline/5xx failures keep the refresh token so retrying does not require a password.
+        throw error;
+      }
+    };
+    return navigator.locks?.request ? navigator.locks.request(storageKey, run) : run();
+  }
   async function accessToken() {
-    if (!session) throw new Error("관리자 로그인이 필요합니다.");
-    if (session.expires_at < Date.now() + 60000) {
+    syncSession();
+    if (!session) throw loginRequired();
+    if (session.expires_at <= Date.now() + 60000) {
       if (!refreshing) {
-        const current = generation;
-        refreshing = request("/auth/v1/token?grant_type=refresh_token", {
-          refresh_token: session.refresh_token,
-        })
-          .then((value) => {
-            if (current === generation) return keepSession(value);
-          })
-          .finally(() => (refreshing = null));
+        const pending = refreshSession().finally(() => { if (refreshing === pending) refreshing = null; });
+        refreshing = pending;
       }
       await refreshing;
     }
-    if (!session) throw new Error("관리자 로그인이 필요합니다.");
+    syncSession();
+    if (!session) throw loginRequired();
     return session.access_token;
   }
+  window.addEventListener("storage", (event) => {
+    if (event.key === storageKey || event.key === null) syncSession();
+  });
   window.FarmerAPI = Object.freeze({
     ready,
+    restoreSession: () => !!syncSession(),
+    hasSession: () => !!session,
+    persistsSession: () => storageAvailable,
     rpc: (name, body = {}) => request("/rest/v1/rpc/" + name, body),
-    admin: async (name, body = {}) =>
-      request("/rest/v1/rpc/" + name, body, await accessToken()),
-    signIn: async (email, password) =>
-      keepSession(
-        await request("/auth/v1/token?grant_type=password", {
-          email,
-          password,
-        }),
-      ),
+    admin: async (name, body = {}) => {
+      const token = await accessToken(), current = generation;
+      try { return await request("/rest/v1/rpc/" + name, body, token); }
+      catch (error) {
+        if ([401, 403].includes(error.status)) {
+          if (current === generation) forgetSession();
+          throw loginRequired();
+        }
+        throw error;
+      }
+    },
+    signIn: async (email, password) => {
+      const current = ++generation;
+      const value = await request("/auth/v1/token?grant_type=password", { email, password });
+      if (current !== generation) throw loginRequired();
+      return keepSession(value);
+    },
     signUp: async (email, password) => {
+      const current = ++generation;
       const result = await request(
         "/auth/v1/signup?redirect_to=" +
-          encodeURIComponent(location.origin + "/admin.html"),
+          encodeURIComponent(location.origin + location.pathname),
         { email, password },
       );
+      if (current !== generation) throw loginRequired();
       keepSession(result);
       return result;
     },
     signOut: async () => {
       const token = session?.access_token;
-      generation++;
-      session = null;
-      if (token) await request("/auth/v1/logout", {}, token).catch(() => {});
+      forgetSession();
+      if (token) await request("/auth/v1/logout?scope=local", {}, token).catch(() => {});
     },
     // An email confirmation can return a short-lived session in the URL fragment.
     consumeCallback: () => {

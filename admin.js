@@ -271,14 +271,43 @@
     }
   }
   async function showDashboard() {
+    const currentVersion = version;
     await api.admin("farmer_admin_summary");
+    if (currentVersion !== version || !api.hasSession()) return;
+    $("restore-session").hidden = true;
     $("login-panel").hidden = true;
     $("dashboard").hidden = false;
     $("logout").hidden = false;
     await load();
+    if (!api.persistsSession()) message("dashboard-message", "브라우저에서 로그인 정보 저장을 허용해야 새로고침 후에도 로그인이 유지됩니다.", true);
+  }
+  async function authenticationError(e) {
+    // A temporary network failure must not revoke a valid, persisted login.
+    if (!e.authRequired && !e.uncertain && e.status !== 429) await api.signOut();
+    clearPrivateView();
+    $("restore-session").hidden = !api.hasSession();
+    message("login-message", api.hasSession()
+      ? "연결을 확인하지 못했습니다. 잠시 후 ‘로그인 상태 다시 확인’을 눌러 주세요."
+      : e.message === "Invalid login credentials" ? "이메일과 비밀번호를 확인해 주세요."
+      : e.message === "Email not confirmed" ? "이메일 확인을 먼저 완료해 주세요." : e.message, true);
+  }
+  async function restoreLogin() {
+    const currentVersion = version;
+    $("login-button").disabled = true;
+    $("signup-button").disabled = true;
+    $("restore-session").disabled = true;
+    message("login-message", "로그인 상태를 확인하고 있습니다.");
+    try { await showDashboard(); }
+    catch (error) { if (currentVersion === version) await authenticationError(error); }
+    finally {
+      $("login-button").disabled = false;
+      $("signup-button").disabled = false;
+      $("restore-session").disabled = false;
+    }
   }
   async function authenticate(signup = false) {
     if (!$("login-form").reportValidity()) return;
+    const currentVersion = version;
     $("login-button").disabled = true;
     $("signup-button").disabled = true;
     message(
@@ -305,17 +334,7 @@
         await showDashboard();
       }
     } catch (e) {
-      await api.signOut();
-      clearPrivateView();
-      message(
-        "login-message",
-        e.message === "Invalid login credentials"
-          ? "이메일과 비밀번호를 확인해 주세요."
-          : e.message === "Email not confirmed"
-            ? "이메일 확인을 먼저 완료해 주세요."
-            : e.message,
-        true,
-      );
+      if (currentVersion === version) await authenticationError(e);
     } finally {
       $("login-button").disabled = false;
       $("signup-button").disabled = false;
@@ -447,6 +466,13 @@
     authenticate();
   });
   $("signup-button").addEventListener("click", () => authenticate(true));
+  $("restore-session").addEventListener("click", restoreLogin);
+  window.addEventListener("farmer:session-ended", () => {
+    clearPrivateView();
+    $("password").value = "";
+    $("restore-session").hidden = true;
+    message("login-message", "로그인이 종료되었습니다. 다시 로그인해 주세요.");
+  });
   $("logout").addEventListener("click", async () => {
     clearPrivateView();
     await api.signOut();
@@ -549,10 +575,8 @@
     message("login-message", "관리 시스템 연결을 준비하고 있습니다.", true);
     $("login-button").disabled = true;
     $("signup-button").disabled = true;
-  } else if (api.consumeCallback())
-    showDashboard().catch(async (e) => {
-      await api.signOut();
-      clearPrivateView();
-      message("login-message", e.message, true);
-    });
+  } else {
+    api.consumeCallback();
+    if (api.restoreSession()) restoreLogin();
+  }
 })();
