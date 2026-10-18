@@ -151,8 +151,8 @@
             <dl class="product-facts">
               <div><dt>품종</dt><dd data-catalog="variety">호풍미</dd></div>
               <div><dt>크기 / 중량</dt><dd data-catalog="weight">혼합 / 2kg, 5kg</dd></div>
-              <div><dt>판매 가격</dt><dd data-catalog="price">2kg 10,000원 / 5kg 20,000원</dd></div>
-              <div><dt>배송비</dt><dd data-catalog="shipping">3,500원</dd></div>
+              <div><dt>판매 가격</dt><dd data-catalog="price">2kg 12,000원 / 5kg 22,000원</dd></div>
+              <div><dt>배송비</dt><dd data-catalog="shipping">무료배송</dd></div>
             </dl>
             <a class="button" href="#order" data-order-view="new">주문하기 <span aria-hidden="true">↗</span></a>
           </div>
@@ -175,7 +175,7 @@
  <div class="form-heading delivery-heading"><h3>받는 분 · 배송 정보</h3><span id="delivery-count">배송지 1곳</span></div>
  <div id="deliveries"></div>
  <button class="button secondary add-delivery" id="add-delivery" type="button">＋ 받는 분 추가하기</button>
- <div class="order-totals" aria-label="전체 주문 금액" aria-live="polite" aria-atomic="true"><dl><div><dt>상품 금액 합계</dt><dd id="subtotal-amount">20,000원</dd></div><div id="discount-line" class="discount-line" hidden><dt>할인코드 할인</dt><dd id="discount-amount">−2,000원</dd></div><div><dt id="shipping-label">배송비 · 1곳</dt><dd id="shipping-amount">3,500원</dd></div><div class="total-line"><dt>총 주문 금액</dt><dd id="total-amount">23,500원</dd></div></dl></div>
+ <div class="order-totals" aria-label="전체 주문 금액" aria-live="polite" aria-atomic="true"><dl><div><dt>상품 금액 합계</dt><dd id="subtotal-amount">22,000원</dd></div><div id="discount-line" class="discount-line" hidden><dt>할인코드 할인</dt><dd id="discount-amount">−2,200원</dd></div><div><dt id="shipping-label">배송비 · 1곳</dt><dd id="shipping-amount">무료</dd></div><div class="total-line"><dt>총 주문 금액</dt><dd id="total-amount">22,000원</dd></div></dl></div>
  <label class="check-label" for="order-check"><input type="checkbox" id="order-check" checked required aria-describedby="order-check-error"><span>주문·배송 정보를 확인했으며, 받는 분의 동의를 받아 주문 처리·배송을 위한 개인정보 수집 및 이용에 동의합니다. *</span></label><p id="order-check-error" class="consent-error"></p>
  <p id="connection-status" class="form-note" role="status"></p>
  <div class="field discount-field"><label for="discount-code">할인코드 <small>선택</small></label><div class="discount-entry"><input id="discount-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="할인코드를 입력해 주세요" aria-describedby="discount-error discount-status"><button class="button secondary" type="button" id="apply-discount">적용</button></div><p class="error" id="discount-error" role="alert"></p><div class="discount-feedback"><p id="discount-status" role="status" aria-live="polite"></p><button id="remove-discount" type="button" hidden>해제</button></div></div>
@@ -202,7 +202,7 @@
   <script src="farmer-config.js"></script>
   <script src="farmer-api.js"></script>
   <script src="payment-config.js"></script>
-  <script src="customer.js"></script>
+  <script src="customer.js?v=20261018-pricing1"></script>
   <script>
     (() => {
       const $ = id => document.getElementById(id);

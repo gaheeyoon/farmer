@@ -9,7 +9,7 @@
   const field = (card, key) => card.querySelector(`[data-field="${key}"]`);
   const money = (n) => Number(n).toLocaleString("ko-KR") + "원";
   let products = [],
-    shipping = 3500,
+    shipping = 0,
     discount = null,
     revision = 0,
     sequence = 0,
@@ -98,7 +98,7 @@
     displayedTotal = q?.total ?? subtotal - amount + fee;
     message("subtotal-amount", valid ? money(subtotal) : "—");
     message("shipping-label", `배송비 · ${cards().length}곳`);
-    message("shipping-amount", money(fee));
+    message("shipping-amount", fee === 0 ? "무료" : money(fee));
     $("discount-line").hidden = !discount;
     message("discount-amount", "−" + money(amount));
     message(
@@ -636,7 +636,7 @@
         price: products
           .map((p) => p.weight_grams / 1000 + "kg " + money(p.price))
           .join(" / "),
-        shipping: money(shipping),
+        shipping: shipping === 0 ? "무료배송" : money(shipping),
       };
       document
         .querySelectorAll("[data-catalog]")
