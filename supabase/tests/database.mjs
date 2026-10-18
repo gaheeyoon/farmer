@@ -92,6 +92,34 @@ assert.equal((await rpc('select public.farmer_admin_summary() as result')).avail
 await anon();await batch('40000000-0000-0000-0000-000000000005');
 await expectError(()=>db.query('select * from farmer_private.order_batches'),'permission denied');
 console.log('PASS: multiple recipients/postcodes, percentage discount, atomic failure, batch retry, repeat customer orders and independent fulfillment.');
+// Exact name/phone lookup includes repeat orders, but never returns contact or address data.
+const lookup=(name,phone,offset=0)=>rpc('select public.farmer_lookup_orders($1,$2,$3) as result',[name,phone,offset]);
+const found=await lookup(' 주문자 ','010-1234-5678');
+assert.equal(found.found,true);assert.equal(found.orders.length,4);assert.equal(found.total_count,4);assert.equal(found.next_offset,null);
+assert.ok(found.orders.every(o=>o.recipient_name.includes('*')));
+assert.ok(found.orders.some(o=>o.status==='confirmed'));
+for(const row of found.orders)for(const key of ['phone','recipient_phone','address','address_detail','postal_code','memo','customer_name','batch_id','request_id'])assert.equal(row[key],undefined);
+assert.deepEqual(await lookup('주문자','01088889999'),{found:false});
+assert.deepEqual(await lookup('다른 이름','01012345678'),{found:false});
+assert.deepEqual(await lookup("' OR 1=1 --",'01012345678'),{found:false});
+assert.deepEqual(await lookup('','01012345678'),{found:false});
+assert.deepEqual(await lookup('주문자','01012345678',-1),{found:false});
+assert.equal((await lookup('기존 주문','01011112222')).orders[0].total,11500);
+const statusOrders=(await lookup('검증용 주문','01000000000')).orders;
+assert.equal(statusOrders.find(o=>o.order_number===b.order_number).status,'delivered');
+assert.equal(statusOrders.find(o=>o.order_number===a.order_number).status,'cancelled');
+for(let i=0;i<9;i++)await batch(`50000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`);
+const page1=await lookup('주문자','01012345678');assert.equal(page1.orders.length,20);assert.equal(page1.total_count,22);assert.equal(page1.next_offset,20);
+const page2=await lookup('주문자','01012345678',page1.next_offset);assert.equal(page2.orders.length,2);assert.equal(page2.next_offset,null);
+assert.equal(new Set([...page1.orders,...page2.orders].map(o=>o.order_number)).size,22);
+assert.deepEqual((await lookup('주문자','01012345678',22)).orders,[]);
+for(let i=0;i<20;i++)assert.equal((await lookup('없는 이름','01077778888')).retry_after,undefined);
+const limited=await lookup('또 다른 이름','01077778888');assert.ok(limited.retry_after>0);assert.equal(limited.found,false);
+await expectError(()=>db.query('select * from farmer_private.order_lookup_limits'),'permission denied');
+await db.exec("reset role;update farmer_private.order_lookup_limits set window_started=now()-interval '16 minutes';");await anon();
+assert.equal((await lookup('없는 이름','01077778888')).retry_after,undefined);
+console.log('PASS: name/phone lookup, repeat orders, pagination, masked fields, wrong credentials, legacy orders, live fulfillment status, attempt limit and reset.');
+
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 console.log('PASS: private data access, server prices, idempotency, stock deduction/restoration, stock shortage, stale edits, shipping/delivery, verified admin allowlist.');

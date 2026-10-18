@@ -17,7 +17,13 @@
     receipt = null,
     locked = false,
     submitting = false,
-    sdkPromise = null;
+    sdkPromise = null,
+    displayedTotal = 0,
+    preparedQuote = null,
+    lookupRevision = 0,
+    lookupQuery = null,
+    lookupOffset = null,
+    lookupBusy = false;
   const requests = new Map();
   const message = (id, text) => {
     $(id).textContent = text;
@@ -89,6 +95,7 @@
             : Math.min(subtotal, discount.amount)
           : 0),
       fee = q?.shipping_fee ?? cards().length * shipping;
+    displayedTotal = q?.total ?? subtotal - amount + fee;
     message("subtotal-amount", valid ? money(subtotal) : "—");
     message("shipping-label", `배송비 · ${cards().length}곳`);
     message("shipping-amount", money(fee));
@@ -104,16 +111,12 @@
   function stale() {
     revision++;
     prepared = null;
+    preparedQuote = null;
     receipt = null;
     $("payment-guide").hidden = true;
+    $("summary-panel").hidden = true;
+    $("receipt-cards").replaceChildren();
     message("payment-amount", "");
-    $("submit-order").disabled = true;
-    message("order-status", "");
-    if (!$("summary-panel").hidden) {
-      $("stale-note").hidden = false;
-      $("summary-text").value =
-        "입력 내용이 변경되었습니다. 주문서를 다시 확인해 주세요.";
-    }
   }
   function clearDiscount() {
     discount = null;
@@ -417,147 +420,206 @@
       .forEach((el) => (el.disabled = value));
     if (!value) refreshCards();
   }
+  const statusLabels = {
+    pending: "입금 대기", confirmed: "주문 확정", shipped: "배송 중",
+    delivered: "배송 완료", cancelled: "주문 취소",
+  };
+  const node = (tag, text, className) => {
+    const el = document.createElement(tag);
+    if (text !== undefined) el.textContent = text;
+    if (className) el.className = className;
+    return el;
+  };
+  const date = (value) => {
+    const d = new Date(value);
+    return Number.isFinite(d.getTime())
+      ? new Intl.DateTimeFormat("ko-KR", {timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"}).format(d)
+      : "";
+  };
+  function renderOrderCards(container, orders, append = false) {
+    if (!append) container.replaceChildren();
+    for (const o of orders) {
+      const card = node("article", undefined, "order-result-card");
+      const top = node("div", undefined, "result-card-top");
+      const badge = node("span", statusLabels[o.status] || "확인 중", "order-state");
+      badge.dataset.state = Object.hasOwn(statusLabels, o.status) ? o.status : "unknown";
+      top.append(node("span", o.order_number, "result-order-number"), badge);
+      card.append(top, node("h4", `${o.product_name} × ${o.quantity}`, "result-product"),
+        node("p", `받는 분 ${o.recipient_name}`, "result-recipient"));
+      const detail = node("dl", undefined, "result-details");
+      const amounts = [["상품 금액", money(o.subtotal)]];
+      if (o.discount_amount) amounts.push(["할인", "−" + money(o.discount_amount)]);
+      amounts.push(["배송비", money(o.shipping_fee)]);
+      for (const [label, value] of amounts) {
+        const row = node("div");row.append(node("dt", label), node("dd", value));detail.append(row);
+      }
+      card.append(detail);
+      const total = node("div", undefined, "result-total");
+      total.append(node("span", "주문 금액"), node("strong", money(o.total)));card.append(total);
+      card.append(node("span", (o.delivered_at ? "배송 완료 " + date(o.delivered_at) : "주문일 " + date(o.created_at)), "result-date"));
+      container.append(card);
+    }
+  }
+  function showPayment(total) {
+    const payment = window.FARMER_PAYMENT || {};
+    const hasAccount = [payment.bank, payment.account, payment.holder].every(
+      value => typeof value === "string" && value.trim().length > 0,
+    );
+    $("payment-account").hidden = !hasAccount;
+    $("payment-missing").hidden = hasAccount;
+    message("payment-bank", hasAccount ? payment.bank : "");
+    message("payment-number", hasAccount ? payment.account : "");
+    message("payment-holder", hasAccount ? "예금주 " + payment.holder : "");
+    message("payment-amount", money(total));
+    $("payment-guide").hidden = false;
+  }
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (locked || !validate()) return;
-    const version = revision,
-      payload = {
-        p_customer_name: $("customer").value.trim(),
-        p_phone: $("phone").value.trim(),
-        p_deliveries: deliveries(),
-        p_coupon_code: discount?.code || "",
-        p_privacy_consent: $("order-check").checked,
-      };
-    $("prepare-button").disabled = true;
-    message("connection-status", "전체 주문 금액을 확인하고 있습니다.");
-    try {
-      const q = await api.rpc("farmer_quote_batch", {
-        p_deliveries: quoteItems(),
-        p_code: payload.p_coupon_code,
-      });
-      if (version !== revision) return;
-      payload.p_expected_total = q.total;
-      const key = JSON.stringify(payload);
-      if (!requests.has(key)) requests.set(key, api.uuid());
-      payload.p_request_id = requests.get(key);
-      prepared = payload;
-      receipt = null;
-      totals(q);
-      $("summary-text").value = [
-        "[어쩌다 농부 · 고구맙습니다 주문서]",
-        "",
-        `주문자: ${payload.p_customer_name}`,
-        `주문자 연락처: ${payload.p_phone}`,
-        ...payload.p_deliveries.flatMap((d, i) => [
-          "",
-          `[배송지 ${i + 1}] 받는 분: ${d.recipient_name}`,
-          `연락처: ${d.recipient_phone}`,
-          `상품: ${q.deliveries[i].product_name} × ${d.quantity}개`,
-          `주소: (${d.postal_code}) ${d.address} ${d.address_detail}`.trim(),
-          `배송 메모: ${d.memo || "없음"}`,
-          `배송지별 금액: ${money(q.deliveries[i].total)}${q.deliveries[i].discount_amount ? " (할인 포함)" : ""}`,
-        ]),
-        "",
-        `상품 금액 합계: ${money(q.subtotal)}`,
-        ...(q.discount_code
-          ? [
-              `할인코드: ${q.discount_code} · −${money(q.discount_amount)}`,
-            ]
-          : []),
-        `배송비: ${money(q.shipping_fee)} (${payload.p_deliveries.length}곳)`,
-        `총 주문 금액: ${money(q.total)}`,
-      ].join("\n");
-      $("summary-panel").hidden = false;
-      $("submit-order").hidden = false;
-      $("submit-order").disabled = false;
-      $("stale-note").hidden = true;
-      message("summary-heading", "모든 배송지를 확인해 주세요.");
-      message(
-        "summary-guide",
-        "주문 내용을 확인한 뒤 접수해 주세요.",
-      );
-      message("order-status", "");
-      $("summary-heading").focus({ preventScroll: true });
-      $("summary-panel").scrollIntoView({
-        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-        block: "start",
-      });
-    } catch (error) {
-      message("connection-status", error.message);
-    } finally {
-      if (version === revision && prepared) message("connection-status", "");
-      if (!locked) $("prepare-button").disabled = false;
-    }
-  });
-  $("submit-order").addEventListener("click", async () => {
-    if (!prepared || receipt || submitting) return;
+    if (receipt || submitting || (locked && !prepared)) return;
+    if (!prepared && !validate()) return;
     submitting = true;
+    const expectedTotal = displayedTotal;
     lock(true);
-    cards().forEach((c) => closeSearch(c));
-    $("submit-order").disabled = true;
-    message(
-      "order-status",
-      "모든 배송지의 주문을 함께 접수하고 있습니다. 잠시 기다려 주세요.",
-    );
+    cards().forEach(c => closeSearch(c));
+    let sent = false, uncertain = false;
+    message("connection-status", "주문을 접수하고 있습니다.");
     try {
-      const result = await api.rpc("farmer_submit_batch", prepared);
-      if (
-        !Array.isArray(result?.orders) ||
-        result.orders.length !== prepared.p_deliveries.length
-      )
-        throw Object.assign(new Error("접수 결과를 확인하지 못했습니다."), {
-          uncertain: true,
+      if (!prepared) {
+        const payload = {
+          p_customer_name: $("customer").value.trim(), p_phone: $("phone").value.trim(),
+          p_deliveries: deliveries(), p_coupon_code: discount?.code || "",
+          p_privacy_consent: $("order-check").checked,
+        };
+        const q = await api.rpc("farmer_quote_batch", {
+          p_deliveries: payload.p_deliveries.map(({product_id,quantity}) => ({product_id,quantity})),
+          p_code: payload.p_coupon_code,
         });
-      receipt = result;
-      message(
-        "summary-heading",
-        "주문서가 접수되었습니다.",
-      );
-      message(
-        "summary-guide",
-        "입금까지 완료해야 주문이 완료됩니다.",
-      );
-      message(
-        "order-status",
-        "입금 확인 후 주문을 확정합니다.",
-      );
-      $("summary-text").value =
-        result.orders
-          .map((o) => `배송지 ${o.delivery_index} 주문번호: ${o.order_number}`)
-          .join("\n") +
-        "\n\n" +
-        $("summary-text").value;
-      const payment = window.FARMER_PAYMENT || {};
-      const hasAccount = [payment.bank, payment.account, payment.holder].every(
-        (value) => typeof value === "string" && value.trim().length > 0,
-      );
-      $("payment-account").hidden = !hasAccount;
-      $("payment-missing").hidden = hasAccount;
-      message("payment-bank", hasAccount ? payment.bank : "");
-      message("payment-number", hasAccount ? payment.account : "");
-      message("payment-holder", hasAccount ? "예금주 " + payment.holder : "");
-      message("payment-amount", money(result.total));
-      $("payment-guide").hidden = false;
-      $("summary-heading").focus();
-      $("submit-order").hidden = true;
-      $("new-order").hidden = false;
-    } catch (error) {
-      $("submit-order").disabled = false;
-      if (error.uncertain)
-        message(
-          "order-status",
-          error.message +
-            " 같은 버튼을 다시 누르면 중복 없이 접수 결과를 확인합니다.",
-        );
-      else {
-        lock(false);
-        message("order-status", error.message);
+        totals(q);
+        if (q.total !== expectedTotal) {
+          message("connection-status", "주문 금액이 변경되었습니다. 금액을 확인한 뒤 다시 주문해 주세요.");
+          return;
+        }
+        payload.p_expected_total = q.total;
+        const key = JSON.stringify(payload);
+        if (!requests.has(key)) requests.set(key, api.uuid());
+        payload.p_request_id = requests.get(key);
+        prepared = payload;
+        preparedQuote = q;
       }
+      sent = true;
+      const result = await api.rpc("farmer_submit_batch", prepared);
+      if (!Array.isArray(result?.orders) || result.orders.length !== prepared.p_deliveries.length || !Number.isFinite(result.total))
+        throw Object.assign(new Error("접수 결과를 확인하지 못했습니다."), {uncertain:true});
+      receipt = result;
+      const receiptRows = result.orders.map((o, i) => ({
+        ...preparedQuote.deliveries[i], ...o, status:o.status || "pending",
+        recipient_name:prepared.p_deliveries[i].recipient_name,
+        created_at:o.created_at || result.created_at,
+      }));
+      renderOrderCards($("receipt-cards"), receiptRows);
+      showPayment(result.total);
+      message("connection-status", "");
+      form.hidden = true;
+      $("summary-panel").hidden = false;
+      if (!$("new-order-panel").hidden) $("summary-heading").focus();
+    } catch (error) {
+      uncertain = sent && !!error.uncertain;
+      message("connection-status", uncertain
+        ? error.message + " 아래 버튼을 다시 누르면 중복 없이 접수 결과를 확인합니다."
+        : error.message);
+      if (!uncertain) {prepared = null;preparedQuote = null;}
     } finally {
       submitting = false;
+      if (!receipt) {
+        if (!uncertain) lock(false);
+        $("prepare-button").disabled = false;
+        $("prepare-button").textContent = uncertain ? "접수 결과 다시 확인" : "주문하기 →";
+      }
     }
+  });
+
+  function setOrderView(view, focusTab = false) {
+    const lookup = view === "lookup";
+    $("new-order-panel").hidden = lookup;
+    $("order-lookup").hidden = !lookup;
+    for (const [id, active] of [["new-order-tab", !lookup],["lookup-order-tab", lookup]]) {
+      $(id).setAttribute("aria-selected", String(active));$(id).tabIndex = active ? 0 : -1;
+    }
+    if (focusTab) $(lookup ? "lookup-order-tab" : "new-order-tab").focus();
+  }
+  function openView(view, focusTab = false) {
+    const hash = view === "lookup" ? "#order-lookup" : "#order";
+    if (location.hash !== hash) history.pushState(null, "", hash);
+    setOrderView(view, focusTab);
+    $("order").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",block:"start"});
+  }
+  document.querySelectorAll("[data-order-view]").forEach(control => {
+    control.addEventListener("click", e => {e.preventDefault();openView(control.dataset.orderView);});
+  });
+  document.querySelector(".order-tabs").addEventListener("keydown", e => {
+    if (!["ArrowLeft","ArrowRight","Home","End"].includes(e.key)) return;
+    e.preventDefault();
+    const view = e.key === "Home" ? "new" : e.key === "End" ? "lookup" : $("new-order-panel").hidden ? "new" : "lookup";
+    openView(view, true);
+  });
+  const syncView = () => setOrderView(location.hash === "#order-lookup" ? "lookup" : "new");
+  addEventListener("popstate", syncView);addEventListener("hashchange", syncView);syncView();
+
+  function clearLookup() {
+    lookupRevision++;lookupQuery = null;lookupOffset = null;
+    $("lookup-results").hidden = true;$("lookup-cards").replaceChildren();
+    $("lookup-more").hidden = true;
+    message("lookup-total", "");message("lookup-message", "");
+  }
+  $("lookup-form").addEventListener("input", e => {
+    if (e.target.id === "lookup-phone") phoneInput(e.target, e);
+    clearLookup();
+  });
+  async function loadOrders(append = false) {
+    if (lookupBusy || !lookupQuery) return;
+    const version = lookupRevision;
+    lookupBusy = true;$("lookup-button").disabled = true;$("lookup-more").disabled = true;
+    message("lookup-message","주문을 확인하고 있습니다.");
+    try {
+      const result = await api.rpc("farmer_lookup_orders",{...lookupQuery,p_offset:append ? lookupOffset : 0});
+      if (version !== lookupRevision) return;
+      if (!result?.found) {
+        message("lookup-message",result?.retry_after ? "조회가 잠시 제한되었습니다. 잠시 후 다시 확인해 주세요." : "입력하신 정보와 일치하는 주문을 찾지 못했습니다.");
+        return;
+      }
+      renderOrderCards($("lookup-cards"),result.orders,append);
+      lookupOffset = result.next_offset;
+      $("lookup-more").hidden = lookupOffset === null;
+      message("lookup-total",`총 ${result.total_count}건`);
+      message("lookup-message","");$("lookup-results").hidden = false;
+      if (!append && !$("order-lookup").hidden) $("lookup-results-title").focus();
+    } catch (error) {
+      if (version === lookupRevision) message("lookup-message",error.message);
+    } finally {
+      lookupBusy = false;$("lookup-button").disabled = false;$("lookup-more").disabled = false;
+    }
+  }
+  $("lookup-form").addEventListener("submit", e => {
+    e.preventDefault();
+    if (lookupBusy) return;
+    clearLookup();
+    const name = $("lookup-name").value.trim(), phone = $("lookup-phone").value;
+    const nameError = name && name.length <= 40 ? "" : "주문자 성함을 입력해 주세요.";
+    const phoneError = validPhone(phone) ? "" : "주문자 연락처를 확인해 주세요.";
+    message("lookup-name-error",nameError);message("lookup-phone-error",phoneError);
+    $("lookup-name").setAttribute("aria-invalid",String(!!nameError));$("lookup-phone").setAttribute("aria-invalid",String(!!phoneError));
+    if (nameError || phoneError) {$(nameError ? "lookup-name" : "lookup-phone").focus();return;}
+    lookupQuery = {p_customer_name:name,p_phone:phone};
+    loadOrders();
+  });
+  $("lookup-more").addEventListener("click", () => {
+    if (lookupOffset !== null) loadOrders(true);
+  });
+  $("view-receipt").addEventListener("click", () => {
+    if (!receipt || !prepared) return;
+    $("lookup-name").value = prepared.p_customer_name;
+    $("lookup-phone").value = prepared.p_phone;
+    openView("lookup");$("lookup-form").requestSubmit();
   });
   async function catalog() {
     try {
@@ -601,8 +663,9 @@
     stale();
     clearDiscount();
     $("summary-panel").hidden = true;
-    $("summary-text").value = "";
-    $("new-order").hidden = true;
+    form.hidden = false;
+    $("prepare-button").textContent = "주문하기 →";
+    clearLookup();
     $("form-errors").hidden = true;
     ["customer-error", "phone-error", "order-check-error"].forEach((id) =>
       message(id, ""),
@@ -614,7 +677,7 @@
     $("customer").focus();
   });
   addEventListener("pageshow", (e) => {
-    if (e.persisted) reset();
+    if (e.persisted) {reset();$("lookup-form").reset();}
   });
   addCard();
   catalog();
