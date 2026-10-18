@@ -470,9 +470,47 @@
     message("payment-bank", hasAccount ? payment.bank : "");
     message("payment-number", hasAccount ? payment.account : "");
     message("payment-holder", hasAccount ? "예금주 " + payment.holder : "");
+    message("copy-payment-label", "복사");
+    message("payment-copy-status", "");
     message("payment-amount", money(total));
     $("payment-guide").hidden = false;
   }
+  $("copy-payment").addEventListener("click", async () => {
+    const payment = window.FARMER_PAYMENT || {};
+    const bank = String(payment.bank || "").trim().replace(/은행$/, "");
+    const account = String(payment.account || "").trim();
+    if (!bank || !account) return;
+    const text = `${bank} ${account}`, button = $("copy-payment");
+    button.disabled = true;
+    message("payment-copy-status", "");
+    try {
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // Keep copying available in browsers that restrict the Clipboard API.
+        const input = document.createElement("textarea");
+        input.value = text;
+        input.readOnly = true;
+        input.tabIndex = -1;
+        input.style.cssText = "position:fixed;left:-9999px;top:0;font-size:16px";
+        document.body.append(input);
+        try {
+          input.select();
+          input.setSelectionRange(0, input.value.length);
+          if (!document.execCommand("copy")) throw new Error("Copy failed");
+        } finally { input.remove(); }
+      }
+      message("copy-payment-label", "복사 완료");
+      message("payment-copy-status", "은행과 계좌번호를 복사했습니다.");
+    } catch {
+      message("copy-payment-label", "복사");
+      message("payment-copy-status", "복사하지 못했습니다. 은행과 계좌번호를 직접 선택해 복사해 주세요.");
+    } finally {
+      button.disabled = false;
+      button.focus({ preventScroll: true });
+    }
+  });
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (receipt || submitting || (locked && !prepared)) return;
