@@ -56,12 +56,16 @@ await expectError(()=>submit(orderArgs('10000000-0000-0000-0000-000000000002',1,
 const b=await submit(orderArgs('10000000-0000-0000-0000-000000000003',2,39600));
 await admin();
 assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,10);
+assert.equal((await rpc('select public.farmer_admin_summary() as result')).pending_kg,22);
+assert.equal((await rpc('select public.farmer_admin_summary() as result')).confirmed_kg,0);
 let orders=(await rpc('select public.farmer_admin_orders() as result')).orders;
 const orderA=orders.find(o=>o.order_number===a.order_number),orderB=orders.find(o=>o.order_number===b.order_number);
 const change=(o,status,version,request,carrier='')=>rpc('select public.farmer_admin_change_status($1,$2,$3,$4,$5,$6) as result',[o,status,version,request,carrier,'TRACK-TEST']);
 const confirmId='20000000-0000-0000-0000-000000000001';
 await change(orderA.id,'confirmed',1,confirmId);
 assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,5);
+assert.equal((await rpc('select public.farmer_admin_summary() as result')).pending_kg,17);
+assert.equal((await rpc('select public.farmer_admin_summary() as result')).confirmed_kg,5);
 await change(orderA.id,'confirmed',1,confirmId);
 assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,5);
 await expectError(()=>change(orderB.id,'confirmed',1,'20000000-0000-0000-0000-000000000002'),'재고가 부족');
@@ -75,6 +79,7 @@ const delivered=(await rpc("select public.farmer_admin_orders('delivered') as re
 assert.ok(delivered.delivered_at);assert.equal(delivered.tracking_number,'TRACK-TEST');
 await expectError(()=>change(orderB.id,'cancelled',4,'20000000-0000-0000-0000-000000000008'),'변경할 수 없는');
 let summary=await rpc('select public.farmer_admin_summary() as result');assert.equal(summary.available_kg,0);
+assert.equal(summary.pending_kg,7);assert.equal(summary.confirmed_kg,0);assert.equal(summary.shipped_kg,0);assert.equal(summary.delivered_kg,10);
 const adjustId='30000000-0000-0000-0000-000000000001';
 const adjust=()=>rpc('select public.farmer_admin_adjust_stock($1,$2,$3,$4) as result',[2.5,'추가 입고',summary.inventory_version,adjustId]);
 await adjust();await adjust();assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,2.5);

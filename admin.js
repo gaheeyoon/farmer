@@ -81,10 +81,10 @@
   function renderSummary() {
     const s = state.summary;
     $("stock-value").textContent = number(s.available_kg) + " kg";
-    $("pending-value").textContent = s.pending + "건";
-    $("confirmed-value").textContent = s.confirmed + "건";
-    $("shipped-value").textContent = s.shipped + "건";
-    $("delivered-value").textContent = s.delivered + "건";
+    for (const stage of ['pending', 'confirmed', 'shipped', 'delivered']) {
+      const weight = node('span', ' · ' + (Number.isFinite(Number(s[stage + '_kg'])) && s[stage + '_kg'] !== null ? number(s[stage + '_kg']) + 'kg' : '—kg'), 'metric-weight');
+      $(stage + '-value').replaceChildren(document.createTextNode(number(s[stage]) + '건'), weight);
+    }
     $("updated-at").textContent = "전체 주문 기준 · 최근 확인 " + date(new Date().toISOString());
     document.querySelectorAll("[data-stage]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.stage === $("status-filter").value)));
   }
@@ -99,7 +99,7 @@
     const orders = selectedOrders();
     const same = orders.length > 0 && orders.every(o => o.status === orders[0].status);
     const target = same ? nextStage[orders[0].status] : null;
-    $("selection-count").textContent = `선택한 주문 ${orders.length}건`;
+    $("selection-count").textContent = `선택한 주문 ${orders.length}건 · ${number(orders.reduce((sum, o) => sum + Number(o.weight_grams || 0), 0) / 1000)}kg`;
     for (const option of $('bulk-status').options) {option.disabled=option.value!==target;if(option.value)option.textContent=stageLabel(option.value,orders);}
     $("bulk-status").value = target || "";
     $("bulk-status").disabled = locked() || !target;

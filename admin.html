@@ -220,6 +220,8 @@
       .metric.stage[aria-pressed="true"] { border-color: var(--purple); box-shadow: inset 0 0 0 1px var(--purple); background: #f1e7ee; }
       .metric.stage:hover:not(:disabled) { border-color: var(--purple); }
       .metric.stage span { display: block; font-size: 13px; }
+      .metric.stage strong { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 5px; }
+      .metric.stage strong .metric-weight { display: inline; font-size: 18px; font-weight: 600; letter-spacing: -.4px; color: var(--muted); white-space: nowrap; }
       input[type="checkbox"] { width: 20px; height: 20px; min-height: 0; padding: 0; margin: 0; accent-color: var(--purple); cursor: pointer; }
       .select-cell { width: 48px; text-align: center; }
       tr.selected { background: #f5edf2; }
@@ -651,7 +653,7 @@
             <button class="button" type="submit">검색</button>
           </form>
           <div class="bulk-toolbar" aria-label="선택 주문 일괄 처리">
-            <strong id="selection-count" aria-live="polite">선택한 주문 0건</strong>
+            <strong id="selection-count" aria-live="polite">선택한 주문 0건 · 0kg</strong>
             <button type="button" class="button secondary" id="clear-selection" disabled>선택 해제</button>
             <label class="sr-only" for="bulk-status">변경할 주문 상태</label>
             <select id="bulk-status" disabled>
@@ -921,6 +923,6 @@
     <script src="admin-discounts.js?v=20261018-codes1"></script>
     <script src="simulation-math.js?v=20261019-giftplan1"></script>
     <script src="admin-simulator.js?v=20261019-giftplan1"></script>
-    <script src="admin.js?v=20261019-giftlinks1"></script>
+    <script src="admin.js?v=20261019-stagekg1"></script>
   </body>
 </html>
