@@ -32,11 +32,10 @@
     const top=e('div',null,'field-task-heading');top.append(e('span',String(index+1).padStart(2,'0'),'task-number'),e('h4',group.task));
     if(group.note)top.append(e('p',group.note,'field-task-note'));
     const list=e('ul',null,'field-people');list.setAttribute('role','list');group.people.forEach(p=>list.append(actor(p)));
-    task.append(top,list);tasks.append(task);
+    task.append(top,list);if(group.postscript)task.append(e('p',group.postscript,'field-postscript'));tasks.append(task);
    });
    scene.append(landline,tasks);
    li.append(heading,intro,scene);
-   if(chapter.aside)li.append(e('p',chapter.aside,'field-postscript'));
    return li;
   }));
  }
