@@ -11,10 +11,30 @@ window.FARMER_TMI = {
   {id:'s6',date:'2026-05-11',name:'원예맞춤1호 · 황산가리',packKg:20,packs:2,npk:[0,0,45]},
   {id:'s7',date:'2026-05-06',name:'LD흑유 비닐',quantity:3,unit:'개',spec:'0.015 × 90 × 1000 (22cm, 무)',kind:'cover',npk:null}
  ],
+ // Characters are symbolic, not portraits. A repeated person keeps the same avatar.
  people: [
-  {step:'01',label:'방향을 알려준 사람들',name:'농업기술센터 · 군청 · 이웃들',title:'추천은, 고구마였습니다.',body:'무엇을 심어야 할지 몰랐던 부부는 여러 곳에 물었습니다. 농업기술센터에서도, 군청에서도, 주변 분들도 고구마를 추천해 주셨습니다.',fact:'같은 작물을 추천해 주신 여러 사람',foot:'덕분에 가장 넓은 밭에는 고구마를 심기로 했습니다.'},
-  {step:'02',label:'밭을 준비한 손길',name:'트랙터 작업을 함께한 분',title:'딱딱했던 땅을 준비하는 일.',body:'10년 동안 휴경했던 땅에서 시작한 첫 농사. 밭 준비와 농사 과정에 트랙터 작업이 함께했습니다.',fact:'트랙터 작업 기록 3회',foot:'기록 날짜 · 4월 28일 / 5월 30일 / 10월 15일'},
-  {step:'03',label:'매일을 배운 두 사람',name:'음악하는 홍세환 · 개발하는 윤가희',title:'농사는 처음인, 두 사람.',body:'600평의 밭에 고구마 8,000주를 심었습니다. 이틀이면 될 줄 알았던 일은 일주일이 걸렸고, 이후에는 열흘을 몸살로 앓았습니다. 서툴지만 대충 하고 싶지는 않았습니다.',fact:'초보 농부 2명 · 삽 두 자루',foot:'시작은 어쩌다, 농사는 진심.'},
-  {step:'04',label:'함께 걱정하고 보탠 손',name:'도움을 주신 이웃들과 작업에 함께한 분들',title:'우리 둘만의 힘은 아니었습니다.',body:'어떻게 해야 하는지 알려주시고, 필요한 것을 챙겨주시고, 농사가 잘되는지 걱정해 주셨습니다. 10월 15일에는 네 분이 작업에 함께한 기록도 남아 있습니다.',fact:'10월 15일 작업 인원 4명',foot:'사람 수로 다 세기 어려운 도움을 받았습니다.'}
+  {step:'01',label:'방향을 알려준 사람들',scene:'guidance',title:'무엇을 심을지부터, 함께 고민했습니다.',intro:'갑자기 생긴 밭 앞에서 무엇부터 해야 할지 몰랐습니다. 귀농귀촌을 안내해 준 분들, 군청의 여러 부서와 이웃들에게 묻고 또 물었습니다.',groups:[
+   {task:'귀농귀촌 안내',people:[{id:'guidance-team',name:'농업기술센터',detail:'귀농귀촌팀',kind:'org',avatar:0,prop:'book'}]},
+   {task:'농사를 시작하기 위한 상담',people:[{id:'county-farm',name:'군청 농정과',kind:'org',avatar:1,prop:'clipboard'},{id:'county-help',name:'군청 신속민원처리과',kind:'org',avatar:2,prop:'clipboard'}]},
+   {task:'가까이에서 들려준 조언',people:[{id:'neighbors',name:'주변 이웃들',kind:'group',avatars:[3,4],prop:'sprout'}]}
+  ]},
+  {step:'02',label:'밭을 준비한 손길',scene:'prepare',title:'심기 전에, 땅부터 준비했습니다.',intro:'농업기술센터에서 토양검사를 받고, 트랙터로 밭을 갈고 이랑과 고랑을 만들었습니다. 고구마를 심을 자리가 그렇게 준비됐습니다.',groups:[
+   {task:'토양검사',people:[{id:'soil-team',name:'농업기술센터',detail:'토양검사',kind:'org',avatar:5,prop:'soil'}]},
+   {task:'트랙터 작업',people:[{id:'jeong',name:'정창득 선생님',detail:'로터리 · 이랑과 고랑 만들기',avatar:6,prop:'tractor'}]}
+  ]},
+  {step:'03',label:'함께 걱정하고 보탠 손',scene:'growing',title:'배우고, 심고, 함께 키웠습니다.',intro:'600평에 고구마 8,000주를 심었습니다. 재배 방법을 알려주신 분, 순을 챙겨주신 분, 직접 밭에서 손을 보태주신 분들. 음악하는 홍세환과 개발하는 윤가희도 그 사이에서 농사를 배웠습니다.',aside:'P.S. 고사리손조차 절실했던 시기',groups:[
+   {task:'고구마 재배 방법',people:[{id:'myeong',name:'명재행 선생님',avatar:7,prop:'book'},{id:'kim',name:'김정숙 선생님',avatar:8,prop:'sprout'}]},
+   {task:'고구마 순',people:[{id:'lee',name:'이용복 선생님',avatar:9,prop:'sprout'}]},
+   {task:'고구마 심기',people:[{id:'mom',name:'엄마',avatar:10,prop:'shovel'},{id:'hyojin',name:'효진 선생님',detail:'낙원요가',avatar:11,prop:'sprout'},{id:'gori',name:'고리 님',detail:'토토스튜디오',avatar:12,prop:'shovel'}]},
+   {task:'세 명의 아이들도 함께',note:'고구마 심기',people:[{id:'yunseo',name:'홍윤서',avatar:13,child:true,prop:'sprout'},{id:'seoyun',name:'홍서윤',avatar:14,child:true,prop:'heart'},{id:'seowoo',name:'홍서우',avatar:15,child:true,prop:'sprout'}]},
+   {task:'지하수와 전기를 빌려주신',people:[{id:'water',name:'OOO 선생님',avatar:16,prop:'water'}]},
+   {task:'매일을 배운 두 사람',note:'시작은 어쩌다, 농사는 진심.',people:[{id:'sehwan',name:'홍세환',detail:'음악하는',avatar:17,prop:'music'},{id:'gahee',name:'윤가희',detail:'개발하는',avatar:18,prop:'laptop'}]}
+  ]},
+  {step:'04',label:'수확',scene:'harvest',date:'2026. 10. 15. 첫 수확',title:'땅속의 고구마를, 함께 꺼냈습니다.',intro:'드디어 첫 고구마를 수확했습니다. 수확기 임대부터 트랙터 작업, 밭에서 함께한 손길과 큐어링까지. 수확의 기쁨 뒤에도 고마운 사람들이 있었습니다.',groups:[
+   {task:'고구마 수확기 임대',people:[{id:'rental',name:'태안농기계임대사업소',kind:'org',avatar:19,prop:'tractor'}]},
+   {task:'트랙터 수확',people:[{id:'jeong',name:'정창득 선생님',avatar:6,prop:'tractor'}]},
+   {task:'수확 현장에 함께한 손',people:[{id:'workers',name:'반도인력',detail:'4명',kind:'group',avatars:[20,21,22,23],prop:'crate'},{id:'eunbyeol',name:'은별 님',avatar:24,prop:'crate'},{id:'jina',name:'지나 언니',avatar:25,prop:'shovel'}]},
+   {task:'큐어링',people:[{id:'byun',name:'변학수 선생님',detail:'태안농산',avatar:26,prop:'crate'}]}
+  ]}
  ]
 };

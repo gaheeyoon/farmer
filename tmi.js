@@ -62,17 +62,7 @@
   $('food-products').textContent = String(data.supplies.length).padStart(2, '0');
   $('food-npk').textContent = String(data.supplies.filter(s => s.npk).length).padStart(2, '0');
   showSupplies();
-  data.people.forEach(p => {
-    const record = el('li', null, 'person-record');
-    const number = el('span', p.step, 'person-index'); number.setAttribute('aria-hidden', 'true');
-    const context = el('div', null, 'person-context');
-    context.append(el('p', p.label, 'person-role'), el('p', p.name, 'person-name'));
-    const copy = el('div', null, 'person-copy');
-    const title = el('h3', p.title); title.id = `person-story-${p.step}`;
-    record.setAttribute('aria-labelledby', title.id);
-    copy.append(title, el('p', p.body, 'person-body'), el('p', p.fact, 'person-fact'), el('p', p.foot, 'person-foot'));
-    record.append(number, context, copy); $('people-records').append(record);
-  });
+  if (window.FarmerPeople) window.FarmerPeople.render(data.people, $('people-records'));
   let scrollQueued = false;
   const progress = () => { const span = document.documentElement.scrollHeight - innerHeight; $('reading-progress').style.width = `${span > 0 ? Math.min(100, scrollY / span * 100) : 0}%`; scrollQueued = false; };
   addEventListener('scroll', () => { if (!scrollQueued) { requestAnimationFrame(progress); scrollQueued = true; } }, { passive: true });
