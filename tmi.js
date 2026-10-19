@@ -50,7 +50,7 @@
           labelBox.append(el('b', `${s.npk[i]}`), el('span', label)); col.append(bar, labelBox); profile.append(col);
         });
         card.append(profile, el('p', `제품명에 기록된 성분 표기 ${s.npk.join('–')} · 같은 눈금으로 비교`, 'supply-caption'));
-      } else card.append(el('p', s.kind === 'cover' ? '밭을 덮는 비닐 · 영양분 성분 그래프에서 제외했습니다.' : '기록된 수량 전부 사용 · 성분 표기는 추가 확인 중입니다.', 'unclassified'));
+      } else if (s.kind === 'cover') card.append(el('p', '밭을 덮는 비닐 · 영양분 성분 그래프에서 제외했습니다.', 'unclassified'));
       return card;
     }));
   }
@@ -62,15 +62,17 @@
   $('food-products').textContent = String(data.supplies.length).padStart(2, '0');
   $('food-npk').textContent = String(data.supplies.filter(s => s.npk).length).padStart(2, '0');
   showSupplies();
-  function showPerson(index) {
-    document.querySelectorAll('#people-path button').forEach((b, i) => b.setAttribute('aria-pressed', String(i === index)));
-    const p = data.people[index];
-    $('people-detail').replaceChildren(el('p', p.name, 'person-name'), el('h3', p.title), el('p', p.body, 'person-body'), el('p', p.fact, 'person-fact'), el('p', p.foot, 'person-foot'));
-  }
-  data.people.forEach((p, i) => {
-    const b = el('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(i === 0)); b.setAttribute('aria-controls', 'people-detail'); b.append(el('b', p.step), el('span', p.label)); b.addEventListener('click', () => showPerson(i)); $('people-path').append(b);
+  data.people.forEach(p => {
+    const record = el('li', null, 'person-record');
+    const number = el('span', p.step, 'person-index'); number.setAttribute('aria-hidden', 'true');
+    const context = el('div', null, 'person-context');
+    context.append(el('p', p.label, 'person-role'), el('p', p.name, 'person-name'));
+    const copy = el('div', null, 'person-copy');
+    const title = el('h3', p.title); title.id = `person-story-${p.step}`;
+    record.setAttribute('aria-labelledby', title.id);
+    copy.append(title, el('p', p.body, 'person-body'), el('p', p.fact, 'person-fact'), el('p', p.foot, 'person-foot'));
+    record.append(number, context, copy); $('people-records').append(record);
   });
-  showPerson(0);
   let scrollQueued = false;
   const progress = () => { const span = document.documentElement.scrollHeight - innerHeight; $('reading-progress').style.width = `${span > 0 ? Math.min(100, scrollY / span * 100) : 0}%`; scrollQueued = false; };
   addEventListener('scroll', () => { if (!scrollQueued) { requestAnimationFrame(progress); scrollQueued = true; } }, { passive: true });
