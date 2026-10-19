@@ -30,6 +30,7 @@
    const text=state==='pending'?(Number(g.total)===0?'주문 확인 후 선물 링크가 표시됩니다.':'입금 확인 후 선물 링크가 표시됩니다. 입금 확인에는 평일 기준 1일이 소요됩니다.'):state==='cancelled'?'취소된 선물입니다.':state==='expired'?'기한 연장이 필요하면 판매자에게 문의해 주세요.':local?'선물 링크 상태를 확인하지 못했습니다. 다시 조회해 주세요.':'선물 링크는 구매한 브라우저에서 확인할 수 있습니다. 다른 기기라면 판매자에게 문의해 주세요.';
    el.append(node('p',text,'gift-status'));
   }
+  if(g.status==='pending'&&state==='pending'&&Number(g.total)>0)el.append(window.FarmerBank.create({pending:true}));
   return el;
  }
  async function load(append=false){

@@ -505,6 +505,7 @@
       const total = node("div", undefined, "result-total");
       total.append(node("span", "주문 금액"), node("strong", money(o.total)));card.append(total);
       card.append(node("span", (o.delivered_at ? (isPickup(o) ? "수령 완료 " : "배송 완료 ") + date(o.delivered_at) : "주문일 " + date(o.created_at)), "result-date"));
+      if (container.id === "lookup-cards" && o.status === "pending" && Number(o.total) > 0) card.append(window.FarmerBank.create({pending:true}));
       container.append(card);
     }
   }
