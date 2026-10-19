@@ -15,15 +15,19 @@ window.FARMER_TMI = {
  people: [
   {step:'01',label:'방향을 알려준 사람들',scene:'guidance',title:'무엇을 심을지부터, 함께 고민했습니다.',intro:'갑자기 생긴 밭 앞에서 무엇부터 해야 할지 몰랐습니다. 귀농귀촌을 안내해 준 분들, 군청의 여러 부서와 이웃들에게 묻고 또 물었습니다.',groups:[
    {task:'귀농귀촌 안내',people:[{id:'guidance-team',name:'농업기술센터',detail:'귀농귀촌팀',kind:'org',avatar:0,prop:'book'}]},
-   {task:'농사를 시작하기 위한 상담',people:[{id:'county-farm',name:'군청 농정과',kind:'org',avatar:1,prop:'clipboard'},{id:'county-help',name:'군청 신속민원처리과',kind:'org',avatar:2,prop:'clipboard'}]},
-   {task:'가까이에서 들려준 조언',people:[{id:'neighbors',name:'주변 이웃들',kind:'group',avatars:[3,4],prop:'sprout'}]}
+   {task:'농지를 구매하기 위한 상담',people:[{id:'county-farm',name:'군청 농정과',kind:'org',avatar:1,prop:'clipboard'},{id:'county-help',name:'군청 신속민원처리과',kind:'org',avatar:2,prop:'clipboard'}]},
+   {task:'가까이에서 들려준 조언',people:[{id:'neighbors',name:'주변 이웃들',kind:'group',avatars:[3,4],prop:'sprout'}]},
+   {task:'농지 대출',note:'귀농농업창업및주택구입지원사업',people:[{id:'yun-heejae',name:'윤희재 계장님',detail:'원북 농협',avatar:31,prop:'clipboard'}]}
   ]},
   {step:'02',label:'밭을 준비한 손길',scene:'prepare',title:'심기 전에, 땅부터 준비했습니다.',intro:'농업기술센터에서 토양검사를 받고, 트랙터로 밭을 갈고 이랑과 고랑을 만들었습니다. 고구마를 심을 자리가 그렇게 준비됐습니다.',groups:[
+   {task:'포크레인으로 잡목 제거 · 땅 정리',people:[{id:'eosong',name:'어송환경',kind:'org',avatar:30,prop:'excavator'}]},
    {task:'토양검사',people:[{id:'soil-team',name:'농업기술센터',detail:'토양검사',kind:'org',avatar:5,prop:'soil'}]},
-   {task:'트랙터 작업',people:[{id:'jeong',name:'정창득 선생님',detail:'로터리 · 이랑과 고랑 만들기',avatar:6,prop:'tractor'}]}
+   {task:'트랙터 작업',people:[{id:'jeong',name:'정창득 선생님',detail:'로터리 · 이랑과 고랑 만들기',avatar:6,prop:'tractor'}]},
+   {task:'농자재 판매',people:[{id:'hyundae',name:'현대농자재마트',kind:'org',avatar:27,prop:'supplies'}]},
+   {task:'비닐하우스',people:[{id:'seohaean',name:'서해안하우스',kind:'org',avatar:29,prop:'greenhouse'}]}
   ]},
   {step:'03',label:'함께 걱정하고 보탠 손',scene:'growing',title:'배우고, 심고, 함께 키웠습니다.',intro:'600평에 고구마 8,000주를 심었습니다. 재배 방법을 알려주신 분, 순을 챙겨주신 분, 직접 밭에서 손을 보태주신 분들. 음악하는 홍세환과 개발하는 윤가희도 그 사이에서 농사를 배웠습니다.',aside:'P.S. 고사리손조차 절실했던 시기',groups:[
-   {task:'고구마 재배 방법',people:[{id:'myeong',name:'명재행 선생님',avatar:7,prop:'book'},{id:'kim',name:'김정숙 선생님',avatar:8,prop:'sprout'}]},
+   {task:'고구마 재배 방법',people:[{id:'myeong',name:'명재행 선생님',avatar:7,prop:'book'},{id:'kim',name:'김정숙 선생님',avatar:8,prop:'sprout'},{id:'igok',name:'이곡서점 작은 사장님',avatar:28,prop:'book'}]},
    {task:'고구마 순',people:[{id:'lee',name:'이용복 선생님',avatar:9,prop:'sprout'}]},
    {task:'고구마 심기',people:[{id:'mom',name:'엄마',avatar:10,prop:'shovel'},{id:'hyojin',name:'효진 선생님',detail:'낙원요가',avatar:11,prop:'sprout'},{id:'gori',name:'고리 님',detail:'토토스튜디오',avatar:12,prop:'shovel'}]},
    {task:'세 명의 아이들도 함께',note:'고구마 심기',people:[{id:'yunseo',name:'홍윤서',avatar:13,child:true,prop:'sprout'},{id:'seoyun',name:'홍서윤',avatar:14,child:true,prop:'heart'},{id:'seowoo',name:'홍서우',avatar:15,child:true,prop:'sprout'}]},
