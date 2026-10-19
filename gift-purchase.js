@@ -46,7 +46,7 @@
   return card;
  }
  async function refreshGiftStatus(){
-  if(statusBusy||!receipt||$('gift-receipt').hidden)return;
+  if(statusBusy||!receipt||$('gift-receipt').hidden||document.getElementById('gift-order-panel')?.hidden)return;
   const ticket=++receiptEpoch,data=receipt;
   statusBusy=true;$('gift-status-refresh').disabled=true;
   tell('gift-status-note','입금 확인 상태를 불러오고 있습니다.');
@@ -79,7 +79,7 @@
  }
  function renderReceipt(data){
   if(!Array.isArray(data?.gifts)||!data.gifts.length)throw Object.assign(new Error('저장 결과를 확인하지 못했습니다.'),{uncertain:true});
-  receipt=data;pending=null;prepared=null;remember();
+  receipt=data;C.rememberReceipt(data);pending=null;prepared=null;remember();
   receiptEpoch++;statusBusy=false;awaitingPayment=true;
   $('gift-review-panel').hidden=true;$('purchase-panel').hidden=true;$('gift-receipt').hidden=false;
   $('gift-receipt-title').textContent='선물 구매 신청서를 저장했습니다.';
@@ -87,7 +87,7 @@
   $('gift-bank').hidden=true;$('gift-payment-notice').hidden=true;$('gift-share-hint').hidden=true;
   $('gift-receipt-links').replaceChildren(...data.gifts.map(g=>receiptCard(g,'unknown')));
   const bank=window.FARMER_PAYMENT;$('gift-bank-owner').textContent=`${bank.bank} · 예금주 ${bank.holder}`;$('gift-bank-account').textContent=bank.account;
-  $('gift-receipt').focus();refreshGiftStatus();
+  if(!document.getElementById('gift-order-panel')?.hidden)$('gift-receipt').focus();refreshGiftStatus();
  }
  async function save(){if(busy||!prepared&&!pending)return;if(!pending){pending=prepared;remember();}busy=true;lock();tell('gift-save-status','선물 구매 신청서를 저장하고 있습니다.');try{const data=await api.rpc('farmer_buy_gifts',pending);renderReceipt(data);tell('gift-purchase-status','');}catch(e){if(!e.uncertain){pending=null;prepared=null;remember();}tell('gift-save-status',e.uncertain?'결과를 확인하지 못했습니다. 같은 버튼으로 신청 결과를 다시 확인해 주세요. 중복 주문되지 않습니다.':e.message,true);}finally{busy=false;lock();}}
  form.addEventListener('submit',async e=>{e.preventDefault();if(busy||pending)return;C.phoneValid($('buyer-phone'));for(const c of cards()){for(const n of ['recipient_label'])field(c,n).setCustomValidity(field(c,n).value.trim()?'':'받는 분 이름을 입력해 주세요.');}for(const id of ['buyer-name','sender-name'])$(id).setCustomValidity($(id).value.trim()?'':'성함을 입력해 주세요.');if(!form.reportValidity())return;busy=true;lock();tell('gift-purchase-status','선물 금액을 확인하고 있습니다.');try{code=$('gift-code').value.trim();const q=await quote();prepared={p_request_id:api.uuid(),p_customer_name:$('buyer-name').value.trim(),p_phone:$('buyer-phone').value,p_sender_name:$('sender-name').value.trim(),p_items:items(),p_code:code,p_expected_total:q.total,p_privacy_consent:true};$('gift-review-items').replaceChildren(...items().map((d,i)=>{const el=node('div',undefined,'gift-review-item');el.append(node('strong',d.recipient_label+'님께 · '+q.deliveries[i].product_name+' × '+d.quantity),node('p',d.message||'별도 메시지 없음'));return el;}));$('gift-review-total').textContent=money(q.total);tell('gift-save-status','');$('gift-review-panel').hidden=false;$('gift-review-panel').focus();tell('gift-purchase-status','');}catch(e){tell('gift-purchase-status',e.message,true);}finally{busy=false;lock();}});
@@ -99,9 +99,10 @@
  $('gift-bank-copy').addEventListener('click',async()=>{const b=window.FARMER_PAYMENT;tell('gift-copy-status',await C.copy(b.bank.replace('은행','')+' '+b.account)?'계좌 정보를 복사했습니다.':'계좌번호를 직접 선택해 복사해 주세요.');});
  $('gift-new-purchase').addEventListener('click',()=>{receiptEpoch++;statusBusy=false;$('gift-receipt').hidden=true;$('purchase-panel').hidden=false;$('restore-gift').hidden=!receipt;$('purchase-panel').scrollIntoView({block:'start'});});$('restore-gift').addEventListener('click',()=>receipt&&renderReceipt(receipt));
  $('gift-status-refresh').addEventListener('click',refreshGiftStatus);
+ window.addEventListener('farmer:viewchange',e=>{if(e.detail.view==='gift')refreshGiftStatus();});
  window.addEventListener('focus',()=>{if(!document.hidden)refreshGiftStatus();});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshGiftStatus();});
  setInterval(()=>{if(awaitingPayment&&!document.hidden)refreshGiftStatus();},60000);
- async function init(){try{const saved=JSON.parse(localStorage.getItem('farmer-orderer:v1')||'null');if(saved){$('buyer-name').value=String(saved.name||'').slice(0,40);$('buyer-phone').value=C.formatPhone(String(saved.phone||''));$('sender-name').value=$('buyer-name').value;}}catch{}try{const saved=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(saved?.until>Date.now()){pending=saved.pending||null;receipt=saved.receipt||null;}}catch{}try{const c=await api.rpc('farmer_catalog');products=c.products.filter(p=>p.id!=='hopungmi-5kg-pickup'&&p.fulfillment_method!=='pickup');add();lock();if(receipt&&!pending)renderReceipt(receipt);if(pending){$('gift-review-items').replaceChildren(...pending.p_items.map(d=>{const el=node('div',undefined,'gift-review-item');el.append(node('strong',d.recipient_label+'님께 · '+(products.find(p=>p.id===d.product_id)?.name||d.product_id)+' × '+d.quantity),node('p',d.message||'별도 메시지 없음'));return el;}));$('gift-review-total').textContent=money(pending.p_expected_total);$('gift-review-panel').hidden=false;$('gift-review-panel').focus();tell('gift-save-status','확인이 끝나지 않은 신청이 있습니다. 같은 요청의 결과를 다시 확인해 주세요.');lock();}if(!products.some(p=>p.available))tell('gift-purchase-status','현재 준비된 재고가 없습니다.',true);}catch(e){tell('gift-purchase-status',e.message,true);}}
+ async function init(){try{const saved=JSON.parse(localStorage.getItem('farmer-orderer:v1')||'null');if(saved){$('buyer-name').value=String(saved.name||'').slice(0,40);$('buyer-phone').value=C.formatPhone(String(saved.phone||''));$('sender-name').value=$('buyer-name').value;}}catch{}try{const saved=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(saved?.until>Date.now()){pending=saved.pending||null;receipt=saved.receipt||null;if(receipt)C.rememberReceipt(receipt);}}catch{}try{const c=await api.rpc('farmer_catalog');products=c.products.filter(p=>p.id!=='hopungmi-5kg-pickup'&&p.fulfillment_method!=='pickup');add();lock();if(receipt&&!pending)renderReceipt(receipt);if(pending){$('gift-review-items').replaceChildren(...pending.p_items.map(d=>{const el=node('div',undefined,'gift-review-item');el.append(node('strong',d.recipient_label+'님께 · '+(products.find(p=>p.id===d.product_id)?.name||d.product_id)+' × '+d.quantity),node('p',d.message||'별도 메시지 없음'));return el;}));$('gift-review-total').textContent=money(pending.p_expected_total);$('gift-review-panel').hidden=false;if(!document.getElementById('gift-order-panel')?.hidden)$('gift-review-panel').focus();tell('gift-save-status','확인이 끝나지 않은 신청이 있습니다. 같은 요청의 결과를 다시 확인해 주세요.');lock();}if(!products.some(p=>p.available))tell('gift-purchase-status','현재 준비된 재고가 없습니다.',true);}catch(e){tell('gift-purchase-status',e.message,true);}}
  init();
 })();

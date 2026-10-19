@@ -628,32 +628,7 @@
     }
   });
 
-  function setOrderView(view, focusTab = false) {
-    const lookup = view === "lookup";
-    $("new-order-panel").hidden = lookup;
-    $("order-lookup").hidden = !lookup;
-    for (const [id, active] of [["new-order-tab", !lookup],["lookup-order-tab", lookup]]) {
-      $(id).setAttribute("aria-selected", String(active));$(id).tabIndex = active ? 0 : -1;
-    }
-    if (focusTab) $(lookup ? "lookup-order-tab" : "new-order-tab").focus();
-  }
-  function openView(view, focusTab = false) {
-    const hash = view === "lookup" ? "#order-lookup" : "#order";
-    if (location.hash !== hash) history.pushState(null, "", hash);
-    setOrderView(view, focusTab);
-    $("order").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",block:"start"});
-  }
-  document.querySelectorAll("[data-order-view]").forEach(control => {
-    control.addEventListener("click", e => {e.preventDefault();openView(control.dataset.orderView);});
-  });
-  document.querySelector(".order-tabs").addEventListener("keydown", e => {
-    if (!["ArrowLeft","ArrowRight","Home","End"].includes(e.key)) return;
-    e.preventDefault();
-    const view = e.key === "Home" ? "new" : e.key === "End" ? "lookup" : $("new-order-panel").hidden ? "new" : "lookup";
-    openView(view, true);
-  });
-  const syncView = () => setOrderView(location.hash === "#order-lookup" ? "lookup" : "new");
-  addEventListener("popstate", syncView);addEventListener("hashchange", syncView);syncView();
+  const openView = (view, focusTab = false) => window.FarmerOrderHub.open(view, focusTab);
 
   function clearLookup() {
     lookupRevision++;lookupQuery = null;lookupOffset = null;

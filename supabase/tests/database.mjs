@@ -254,6 +254,8 @@ await verifyPickup({db,rpc,admin,anon,expectError});
 
 const {verifyGiftLinks}=await import('./gift-links.mjs');
 await verifyGiftLinks({db,rpc,admin,anon,expectError});
+const {verifySentGifts}=await import('./sent-gifts.mjs');
+await verifySentGifts({db,rpc,admin,anon});
 
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
