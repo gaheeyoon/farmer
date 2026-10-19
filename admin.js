@@ -12,7 +12,7 @@
   const isPickup = o => o?.fulfillment_method === 'pickup' || o?.product_id === 'hopungmi-5kg-pickup' || String(o?.product_name || '').includes('방문 수령');
   const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',delivered:'수령 완료',cancelled:'취소'};
   const stageLabel = (status,orders) => orders.length && orders.every(isPickup) ? pickupStatuses[status] : statuses[status];
-  const statusText = o => isPickup(o) ? pickupStatuses[o.status] : o.order_kind === "gift" && o.status === "confirmed" ? "배송 준비" : statuses[o.status];
+  const statusText = o => o.awaiting_address && o.status === "confirmed" ? "입금 확인 · 주소 입력 대기" : isPickup(o) ? pickupStatuses[o.status] : o.order_kind === "gift" && o.status === "confirmed" ? "배송 준비" : statuses[o.status];
   const number = (n) =>
     Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
   const date = (v) =>
@@ -31,6 +31,7 @@
     loading = false;
   const requests = new Map();
   const selected = new Set();
+  const canSelect = o => o && nextStage[o.status] && !(o.awaiting_address && o.status === "confirmed");
   const nextStage = { pending: "confirmed", confirmed: "shipped", shipped: "delivered" };
   let bulkPending = null, bulkBusy = false;
   const locked = () => loading || bulkBusy || !!bulkPending;
@@ -58,6 +59,7 @@
   function clearPrivateView() {
     version++;
     window.FarmerGifts.clear();
+    window.FarmerGiftLinks.clear();
     window.FarmerFinance.clear();
     window.FarmerDiscounts.clear();
     window.FarmerSimulator.clear();
@@ -125,17 +127,17 @@
   }
   function updateControls() {
     const busy = locked();
-    document.querySelectorAll("[data-stage], #filter-form input, #filter-form select, #filter-form button, .order-link, #refresh, #open-stock, #open-gift").forEach(el => el.disabled = busy);
+    document.querySelectorAll("[data-stage], #filter-form input, #filter-form select, #filter-form button, .order-link, #refresh, #open-stock, #open-gift, #open-gift-links").forEach(el => el.disabled = busy);
     $("previous").disabled = busy || state.offset === 0;
     $("next").disabled = busy || state.offset + 50 >= state.total;
-    const eligible = state.orders.filter(o => nextStage[o.status]);
+    const eligible = state.orders.filter(canSelect);
     const count = eligible.filter(o => selected.has(o.id)).length;
     $("select-all").checked = eligible.length > 0 && count === eligible.length;
     $("select-all").indeterminate = count > 0 && count < eligible.length;
     $("select-all").disabled = busy || !eligible.length;
     document.querySelectorAll("[data-select-order]").forEach(input => {
       input.checked = selected.has(input.dataset.selectOrder);
-      input.disabled = busy || !nextStage[state.orders.find(o => o.id === input.dataset.selectOrder)?.status];
+      input.disabled = busy || !canSelect(state.orders.find(o => o.id === input.dataset.selectOrder));
       input.closest("tr").classList.toggle("selected", input.checked);
     });
     $("bulk-carrier").disabled = busy;
@@ -215,6 +217,7 @@
       link.addEventListener("click", () => openOrder(o));
       first.append(link, node("small", date(o.created_at)));
       if(isPickup(o)) link.after(node("span","방문 수령","badge"));
+      if (o.is_link_gift && o.order_kind === "sale") link.after(node("span", "선물 구매", "badge gift"));
       if (o.order_kind === "gift") link.after(node("span", "선물 · 무상", "badge gift"));
       const customer = cell(row, o.customer_name);
       customer.append(
@@ -358,7 +361,7 @@
       ["상태", statusText(o)],
       ["주문자", o.customer_name],
       ["받는 분", o.recipient_name || o.customer_name],
-      ["받는 분 연락처", o.recipient_phone || o.phone],
+      ["받는 분 연락처", o.awaiting_address ? "배송지 등록 대기" : o.recipient_phone || o.phone],
       ["우편번호", isPickup(o) ? "방문 수령" : o.postal_code || "기존 주문 · 미입력"],
       [
         "함께 접수한 주문",
@@ -378,7 +381,7 @@
           ? `${o.discount_code} · ${number(o.discount_amount)}원`
           : "없음",
       ],
-      [isPickup(o) ? "수령 장소" : "배송지", [o.address, o.address_detail].filter(Boolean).join(" ")],
+      [isPickup(o) ? "수령 장소" : "배송지", o.awaiting_address ? "받는 분의 배송지 등록 대기" : [o.address, o.address_detail].filter(Boolean).join(" ")],
       [isPickup(o) ? "수령 메모" : "배송 메모", o.memo || "없음"],
       ["접수", date(o.created_at)],
       [o.order_kind === "gift" ? "배송 준비" : "입금 확인", date(o.confirmed_at)],
@@ -389,7 +392,7 @@
     ];
     for (const [key, value] of details)
       $("order-details").append(node("dt", key), node("dd", value));
-    $("shipping-fields").hidden = o.status !== "confirmed" || isPickup(o);
+    $("shipping-fields").hidden = o.status !== "confirmed" || isPickup(o) || o.awaiting_address;
     $("carrier").value = isPickup(o) ? "방문 수령" : o.carrier;
     $("tracking").value = o.tracking_number;
     $("order-actions").replaceChildren();
@@ -406,6 +409,7 @@
         shipped: isPickup(o) ? [["delivered","수령 완료 처리"],["cancelled","주문 취소"]] : [["delivered", "배송 완료 처리"]],
       }[o.status] || [];
     for (const [status, label] of choices) {
+      if (status === "shipped" && o.awaiting_address) continue;
       const b = node(
         "button",
         (isPickup(o) && status !== "cancelled" ? ({confirmed:"입금 확인(수령 준비)",shipped:"수령 대기 처리",delivered:"수령 완료 처리"})[status] : label),
@@ -491,7 +495,7 @@
     if (locked()) return;
     const checked = $("select-all").checked;
     selected.clear();
-    if (checked) state.orders.filter(o => nextStage[o.status]).forEach(o => selected.add(o.id));
+    if (checked) state.orders.filter(canSelect).forEach(o => selected.add(o.id));
     message("bulk-message", "");
     renderSelection();
   });
@@ -511,6 +515,7 @@
   $("status-filter").addEventListener("change", filterOrders);
   $("kind-filter").addEventListener("change", filterOrders);
   $("open-gift").addEventListener("click", () => { if (!locked()) window.FarmerGifts.open(); });
+  window.FarmerGiftLinks.init(async () => { await load().catch(() => {}); });
   window.FarmerGifts.init(async result => {
     const currentVersion = version;
     $("kind-filter").value = "gift";
