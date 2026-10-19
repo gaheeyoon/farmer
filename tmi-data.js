@@ -27,9 +27,10 @@ window.FARMER_TMI = {
    {task:'비닐하우스',people:[{id:'seohaean',name:'서해안하우스',kind:'org',avatar:29,prop:'greenhouse'}]}
   ]},
   {step:'03',label:'함께 걱정하고 보탠 손',scene:'growing',title:'배우고, 심고, 함께 키웠습니다.',intro:'600평에 고구마 8,000주를 심었습니다. 재배 방법을 알려주신 분, 순을 챙겨주신 분, 직접 밭에서 손을 보태주신 분들. 음악하는 홍세환과 개발하는 윤가희도 그 사이에서 농사를 배웠습니다.',groups:[
-   {task:'고구마 재배 방법',people:[{id:'myeong',name:'명재행 선생님',avatar:7,prop:'book'},{id:'kim',name:'김정숙 선생님',avatar:8,prop:'sprout'},{id:'igok',name:'이곡서점 작은 사장님',avatar:28,prop:'book'}]},
+   {task:'고구마 재배 방법',people:[{id:'myeong',name:'명재행 선생님',avatar:7,prop:'book'},{id:'kim',name:'김정숙 선생님',avatar:8,prop:'sprout'}]},
+   {task:'고구마 심기 조언',people:[{id:'igok',name:'이곡서점 작은 사장님',avatar:28,prop:'book'}]},
    {task:'고구마 순',people:[{id:'lee',name:'이용복 선생님',avatar:9,prop:'sprout'}]},
-   {task:'고구마 심기',people:[{id:'mom',name:'엄마',avatar:10,prop:'shovel'},{id:'hyojin',name:'효진 선생님',detail:'낙원요가',avatar:11,prop:'sprout'},{id:'gori',name:'고리 님',detail:'토토스튜디오',avatar:12,prop:'shovel'}]},
+   {task:'고구마 심기',people:[{id:'mom',name:'엄마',avatar:10,prop:'shovel'},{id:'hyojin',name:'효진 선생님',detail:'낙원요가',avatar:11,prop:'sprout'},{id:'gori',name:'고리 님',detail:'토토스튜디오',avatar:12,prop:'shovel'},{id:'park-hyangseon',name:'박향선',detail:'도래푸드',avatar:32,prop:'sprout'},{id:'kim-minseok',name:'김민석',detail:'도래푸드',avatar:33,prop:'shovel'}]},
    {task:'세 명의 아이들도 함께',note:'고구마 심기',postscript:'P.S. 고사리손조차 절실했던 시기',people:[{id:'yunseo',name:'홍윤서',avatar:13,child:true,prop:'sprout'},{id:'seoyun',name:'홍서윤',avatar:14,child:true,prop:'heart'},{id:'seowoo',name:'홍서우',avatar:15,child:true,prop:'sprout'}]},
    {task:'지하수와 전기를 빌려주신',people:[{id:'water',name:'OOO 선생님',avatar:16,prop:'water'}]},
    {task:'매일을 배운 두 사람',note:'시작은 어쩌다, 농사는 진심.',people:[{id:'sehwan',name:'홍세환',detail:'음악하는',avatar:17,prop:'music'},{id:'gahee',name:'윤가희',detail:'개발하는',avatar:18,prop:'laptop'}]}
@@ -38,7 +39,8 @@ window.FARMER_TMI = {
    {task:'고구마 수확기 임대',people:[{id:'rental',name:'태안농기계임대사업소',kind:'org',avatar:19,prop:'tractor'}]},
    {task:'트랙터 수확',people:[{id:'jeong',name:'정창득 선생님',avatar:6,prop:'tractor'}]},
    {task:'수확 현장에 함께한 손',people:[{id:'workers',name:'반도인력',detail:'4명',kind:'group',avatars:[20,21,22,23],prop:'crate'},{id:'eunbyeol',name:'은별 님',avatar:24,prop:'crate'},{id:'jina',name:'지나 언니',avatar:25,prop:'shovel'}]},
-   {task:'큐어링',people:[{id:'byun',name:'변학수 선생님',detail:'태안농산',avatar:26,prop:'crate'}]}
+   {task:'큐어링',people:[{id:'byun',name:'변학수 선생님',detail:'태안농산',avatar:26,prop:'crate'}]},
+   {task:'콘티 박스 판매',people:[{id:'myeong',name:'명재행 선생님',avatar:7,prop:'crate'},{id:'kim',name:'김정숙 선생님',avatar:8,prop:'crate'}]}
   ]}
  ]
 };
