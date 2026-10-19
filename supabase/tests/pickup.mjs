@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+export async function verifyPickup({db,rpc,admin,anon,expectError}){
+ await db.exec('reset role;update public.farmer_inventory set available_grams=100000;');await anon();
+ const catalog=await rpc('select public.farmer_catalog() as result');const p=catalog.products.find(p=>p.id==='hopungmi-5kg-pickup');assert.equal(p.price,18000);assert.equal(p.weight_grams,5000);assert.equal(p.fulfillment_method,'pickup');assert.equal(catalog.pickup_location.address,'원북면 원이로 804-59');
+ const pickup={product_id:p.id,quantity:1,recipient_name:'수령 검증',recipient_phone:'01011112222',postal_code:'',address:'',address_detail:'',memo:'수령 메모'};
+ const shipping={...pickup,product_id:'hopungmi-2kg',postal_code:'12345',address:'배송 주소 검증 123',memo:''};
+ const quote=(items,code='')=>rpc('select public.farmer_quote_batch($1,$2) as result',[JSON.stringify(items),code]);
+ const submit=(id,items,total,code='')=>rpc('select public.farmer_submit_batch($1,$2,$3,$4,$5,$6,$7) as result',[id,'방문 주문 검증','01044445555',JSON.stringify(items),code,total,true]);
+ let q=await quote([pickup]);assert.equal(q.total,18000);assert.equal(q.shipping_fee,0);assert.equal(q.deliveries[0].fulfillment_method,'pickup');
+ q=await quote([pickup],'GOGUMA');assert.equal(q.discount_amount,1800);assert.equal(q.total,16200);
+ const id=randomUUID();await expectError(()=>submit(id,[pickup],1),'판매 금액');const receipt=await submit(id,[pickup],18000);assert.deepEqual(await submit(id,[pickup],18000),receipt);
+ let mixed=await quote([pickup,shipping]);assert.equal(mixed.total,30000);await expectError(()=>submit(randomUUID(),[pickup,{...shipping,postal_code:''}],30000),'우편번호');
+ await expectError(()=>submit(randomUUID(),[{...pickup,recipient_phone:'abc'}],18000),'연락처');
+ await expectError(()=>submit(randomUUID(),[{...pickup,memo:'가'.repeat(301)}],18000),'배송 정보');
+ await submit(randomUUID(),[pickup,shipping],30000);
+ await admin();let rows=(await rpc("select public.farmer_admin_order_list('','방문 주문 검증',0,'') as result")).orders;
+ const row=rows.find(o=>o.batch_id===id);assert.equal(row.fulfillment_method,'pickup');assert.equal(row.postal_code,'');assert.equal(row.address,'원북면 원이로 804-59');assert.equal(row.address_detail,'홍세환 소셜라운지');
+ const kg=async()=>Number((await rpc('select public.farmer_admin_summary() as result')).available_kg);
+ const change=(order,status,version)=>rpc('select public.farmer_admin_change_status($1,$2,$3,$4,$5,$6) as result',[order.id,status,version,randomUUID(),'','']);
+ assert.equal(await kg(),100);await change(row,'confirmed',1);assert.equal(await kg(),95);
+ await change(row,'shipped',2);await change(row,'delivered',3);assert.equal(await kg(),95);
+ rows=(await rpc("select public.farmer_admin_order_list('','방문 주문 검증',0,'') as result")).orders;let done=rows.find(o=>o.id===row.id);assert.equal(done.status,'delivered');assert.equal(done.carrier,'방문 수령');assert.equal(done.tracking_number,'');assert.ok(done.delivered_at);
+ const other=rows.find(o=>o.product_id===p.id&&o.id!==row.id);await change(other,'confirmed',1);assert.equal(await kg(),90);await change(other,'shipped',2);await change(other,'cancelled',3);assert.equal(await kg(),95);
+ const shipped=rows.find(o=>o.product_id==='hopungmi-2kg');await change(shipped,'confirmed',1);await expectError(()=>change(shipped,'shipped',2),'택배사');
+ await anon();const lookup=await rpc('select public.farmer_lookup_orders($1,$2,0) as result',['방문 주문 검증','01044445555']);assert.ok(lookup.orders.some(o=>o.fulfillment_method==='pickup'));assert.ok(lookup.orders.every(o=>!('address' in o)&&!('phone' in o)));
+ await expectError(()=>db.query('select * from public.farmer_orders'),'permission denied');
+ const legacyId=randomUUID(),legacy=await rpc('select public.farmer_submit_order($1,$2,1,$3,$4,$5,$6,$7,$8,18000,true) as result',[legacyId,p.id,'','단일 방문 검증','01022223333','','','']);assert.equal(legacy.total,18000);
+ console.log('PASS: pickup price, address-free checkout, mixed delivery validation, discounts, safe retries, canonical pickup location, shared stock, cancellation, pickup fulfillment and private lookup.');
+}

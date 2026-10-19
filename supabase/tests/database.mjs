@@ -38,7 +38,7 @@ const submit=args=>rpc('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$
 await anon();
 const catalog=await rpc('select public.farmer_catalog() as result');
 assert.equal(catalog.shipping_fee,0);
-assert.deepEqual(catalog.products.map(p=>p.price),[12000,22000]);
+assert.deepEqual(catalog.products.map(p=>p.price),[12000,22000,18000]);
 assert.equal((await rpc(`select public.farmer_quote('hopungmi-5kg',3,'goguma') as result`)).total,59400);
 for(const [product,qty,discount,total] of [['hopungmi-2kg',1,1200,10800],['hopungmi-5kg',1,2200,19800],['hopungmi-2kg',3,3600,32400],['hopungmi-5kg',3,6600,59400]]) {
  const q=await rpc('select public.farmer_quote($1,$2,$3) as result',[product,qty,'GOGUMA']);assert.equal(q.discount_amount,discount);assert.equal(q.discount_percent,10);assert.equal(q.total,total);assert.equal(q.shipping_fee,0);
@@ -248,6 +248,9 @@ const {verifyFinance}=await import('./finance.mjs');
 await verifyFinance({db,rpc,admin,anon,expectError});
 const {verifyDiscounts}=await import('./discounts.mjs');
 await verifyDiscounts({db,rpc,admin,anon,expectError});
+
+const {verifyPickup}=await import('./pickup.mjs');
+await verifyPickup({db,rpc,admin,anon,expectError});
 
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');

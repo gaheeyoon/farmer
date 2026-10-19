@@ -71,7 +71,7 @@
     try {
       const result = await api.rpc("farmer_catalog");
       if (current !== revision || !$("gift-dialog").open) return;
-      products = result.products;
+      products = result.products.filter(p => p.fulfillment_method !== 'pickup' && p.id !== 'hopungmi-5kg-pickup');
       busy = false;
       addCard();
       tell(products.some(p => p.available) ? "" : "현재 등록 가능한 재고가 없습니다.", !products.some(p => p.available));

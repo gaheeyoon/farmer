@@ -9,7 +9,10 @@
     delivered: "배송 완료",
     cancelled: "취소",
   };
-  const statusText = o => o.order_kind === "gift" && o.status === "confirmed" ? "배송 준비" : statuses[o.status];
+  const isPickup = o => o?.fulfillment_method === 'pickup' || o?.product_id === 'hopungmi-5kg-pickup' || String(o?.product_name || '').includes('방문 수령');
+  const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',delivered:'수령 완료',cancelled:'취소'};
+  const stageLabel = (status,orders) => orders.length && orders.every(isPickup) ? pickupStatuses[status] : statuses[status];
+  const statusText = o => isPickup(o) ? pickupStatuses[o.status] : o.order_kind === "gift" && o.status === "confirmed" ? "배송 준비" : statuses[o.status];
   const number = (n) =>
     Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
   const date = (v) =>
@@ -95,16 +98,16 @@
     const same = orders.length > 0 && orders.every(o => o.status === orders[0].status);
     const target = same ? nextStage[orders[0].status] : null;
     $("selection-count").textContent = `선택한 주문 ${orders.length}건`;
-    for (const option of $("bulk-status").options) option.disabled = option.value !== target;
+    for (const option of $('bulk-status').options) {option.disabled=option.value!==target;if(option.value)option.textContent=stageLabel(option.value,orders);}
     $("bulk-status").value = target || "";
     $("bulk-status").disabled = locked() || !target;
     $("clear-selection").disabled = locked() || !orders.length;
     $("bulk-submit").disabled = loading || bulkBusy || (!bulkPending && !target);
     $("bulk-submit").textContent = bulkBusy ? "변경 중…" : bulkPending ? "처리 결과 다시 확인" : "선택 주문 상태 변경";
-    $("bulk-shipping").hidden = target !== "shipped";
+    $("bulk-shipping").hidden = target !== "shipped" || orders.every(isPickup);
     const oldValues = new Map([...$("shipment-inputs").querySelectorAll("input")].map(i => [i.dataset.orderId, i.value]));
     $("shipment-inputs").replaceChildren();
-    if (target === "shipped") for (const o of orders) {
+    if (target === "shipped") for (const o of orders.filter(o => !isPickup(o))) {
       const row = node("div", undefined, "shipment-row"), label = node("label", o.order_number + " · " + (o.recipient_name || o.customer_name));
       const input = node("input");
       input.id = "shipment-" + o.id;
@@ -144,22 +147,23 @@
       const orders = selectedOrders(), status = $("bulk-status").value;
       if (!orders.length || !orders.every(o => nextStage[o.status] === status)) return;
       const carrier = $("bulk-carrier").value.trim();
-      if (status === "shipped" && !carrier) {
+      if (status === "shipped" && orders.some(o => !isPickup(o)) && !carrier) {
         message("bulk-message", "택배사 또는 배송 방법을 입력해 주세요.", true);
         $("bulk-carrier").focus();
         return;
       }
+      const allPickup = orders.every(isPickup);
       const extra = status === "confirmed"
         ? `입금을 확인하셨나요? 재고 ${number(orders.reduce((sum, o) => sum + o.weight_grams, 0) / 1000)}kg이 차감됩니다.`
-        : status === "delivered" ? "실제 배송이 완료된 주문인지 확인해 주세요." : "입력한 배송 정보로 발송 처리합니다.";
-      if (!confirm(`${orders.length}건을 ‘${statuses[status]}’ 상태로 변경할까요?\n${extra}`)) return;
+        : status === "delivered" ? (allPickup ? "실제 방문 수령이 완료된 주문인지 확인해 주세요." : "실제 배송 또는 수령이 완료된 주문인지 확인해 주세요.") : (allPickup ? "방문 수령 대기로 변경합니다." : "입력한 배송 정보로 발송 처리합니다.");
+      if (!confirm(`${orders.length}건을 ‘${stageLabel(status,orders)}’ 상태로 변경할까요?\n${extra}`)) return;
       bulkPending = { p_status: status, p_orders: orders.map(o => ({
         order_id: o.id, expected_version: o.version, request_id: api.uuid(),
-        carrier: status === "shipped" ? carrier : "",
-        tracking_number: status === "shipped" ? $("shipment-" + o.id).value.trim() : "",
+        carrier: status === "shipped" ? (isPickup(o) ? "방문 수령" : carrier) : "",
+        tracking_number: status === "shipped" && !isPickup(o) ? $("shipment-" + o.id).value.trim() : "",
       })) };
     }
-    const currentVersion = version, payload = bulkPending;
+    const currentVersion = version, payload = bulkPending, completionLabel=stageLabel(bulkPending.p_status,selectedOrders());
     bulkBusy = true;
     message("bulk-message", "선택한 주문을 변경하고 있습니다.");
     renderSelection();
@@ -169,7 +173,7 @@
       bulkPending = null;
       bulkBusy = false;
       clearSelection();
-      const success = `${payload.p_orders.length}건을 ‘${statuses[payload.p_status]}’ 상태로 처리했습니다.`;
+      const success = `${payload.p_orders.length}건을 ‘${completionLabel}’ 상태로 처리했습니다.`;
       try {
         await load();
         if (currentVersion === version) message("dashboard-message", success);
@@ -210,6 +214,7 @@
       link.type = "button";
       link.addEventListener("click", () => openOrder(o));
       first.append(link, node("small", date(o.created_at)));
+      if(isPickup(o)) link.after(node("span","방문 수령","badge"));
       if (o.order_kind === "gift") link.after(node("span", "선물 · 무상", "badge gift"));
       const customer = cell(row, o.customer_name);
       customer.append(
@@ -354,7 +359,7 @@
       ["주문자", o.customer_name],
       ["받는 분", o.recipient_name || o.customer_name],
       ["받는 분 연락처", o.recipient_phone || o.phone],
-      ["우편번호", o.postal_code || "기존 주문 · 미입력"],
+      ["우편번호", isPickup(o) ? "방문 수령" : o.postal_code || "기존 주문 · 미입력"],
       [
         "함께 접수한 주문",
         o.batch_id
@@ -373,19 +378,19 @@
           ? `${o.discount_code} · ${number(o.discount_amount)}원`
           : "없음",
       ],
-      ["배송지", [o.address, o.address_detail].filter(Boolean).join(" ")],
-      ["배송 메모", o.memo || "없음"],
+      [isPickup(o) ? "수령 장소" : "배송지", [o.address, o.address_detail].filter(Boolean).join(" ")],
+      [isPickup(o) ? "수령 메모" : "배송 메모", o.memo || "없음"],
       ["접수", date(o.created_at)],
       [o.order_kind === "gift" ? "배송 준비" : "입금 확인", date(o.confirmed_at)],
-      ["발송", date(o.shipped_at)],
-      ["배송 완료", date(o.delivered_at)],
+      [isPickup(o) ? "수령 대기" : "발송", date(o.shipped_at)],
+      [isPickup(o) ? "수령 완료" : "배송 완료", date(o.delivered_at)],
       ["배송 방법", o.carrier || "—"],
       ["송장", o.tracking_number || "—"],
     ];
     for (const [key, value] of details)
       $("order-details").append(node("dt", key), node("dd", value));
-    $("shipping-fields").hidden = o.status !== "confirmed";
-    $("carrier").value = o.carrier;
+    $("shipping-fields").hidden = o.status !== "confirmed" || isPickup(o);
+    $("carrier").value = isPickup(o) ? "방문 수령" : o.carrier;
     $("tracking").value = o.tracking_number;
     $("order-actions").replaceChildren();
     const choices =
@@ -398,12 +403,12 @@
           ["shipped", "발송 처리"],
           ["cancelled", "주문 취소"],
         ],
-        shipped: [["delivered", "배송 완료 처리"]],
+        shipped: isPickup(o) ? [["delivered","수령 완료 처리"],["cancelled","주문 취소"]] : [["delivered", "배송 완료 처리"]],
       }[o.status] || [];
     for (const [status, label] of choices) {
       const b = node(
         "button",
-        label,
+        (isPickup(o) && status !== "cancelled" ? ({confirmed:"입금 확인(수령 준비)",shipped:"수령 대기 처리",delivered:"수령 완료 처리"})[status] : label),
         "button" + (status === "cancelled" ? " danger" : ""),
       );
       b.type = "button";
@@ -414,7 +419,7 @@
       o.status === "pending"
         ? `입금을 확인하면 재고 ${number(o.weight_grams / 1000)}kg이 차감됩니다.`
         : o.status === "confirmed"
-          ? `배송 전 취소하면 재고 ${number(o.weight_grams / 1000)}kg이 복구됩니다.`
+          ? `${isPickup(o) ? "수령 전" : "배송 전"} 취소하면 재고 ${number(o.weight_grams / 1000)}kg이 복구됩니다.`
           : "";
     message("order-message", "");
     $("order-dialog").showModal();
@@ -422,7 +427,7 @@
   async function changeOrder(status) {
     const o = state.current;
     if (!o) return;
-    if (status === "shipped" && !$("carrier").value.trim()) {
+    if (status === "shipped" && !isPickup(o) && !$("carrier").value.trim()) {
       message("order-message", "택배사 또는 배송 방법을 입력해 주세요.", true);
       $("carrier").focus();
       return;
@@ -433,15 +438,15 @@
         : status === "cancelled"
           ? `${o.order_number}를 취소할까요?`
           : status === "shipped"
-            ? "입력한 배송 정보로 발송 처리할까요?"
-            : "실제 배송이 완료되었나요? 완료 일시가 기록됩니다.";
+            ? (isPickup(o) ? "방문 수령 대기로 변경할까요?" : "입력한 배송 정보로 발송 처리할까요?")
+            : (isPickup(o) ? "방문 수령이 완료되었나요? 완료 일시가 기록됩니다." : "실제 배송이 완료되었나요? 완료 일시가 기록됩니다.");
     if (!confirm(prompt)) return;
     const payload = {
       p_order_id: o.id,
       p_status: status,
       p_expected_version: o.version,
-      p_carrier: $("carrier").value.trim(),
-      p_tracking_number: $("tracking").value.trim(),
+      p_carrier: isPickup(o) ? "방문 수령" : $("carrier").value.trim(),
+      p_tracking_number: isPickup(o) ? "" : $("tracking").value.trim(),
     };
     payload.p_request_id = requestId(payload);
     $("order-actions")
