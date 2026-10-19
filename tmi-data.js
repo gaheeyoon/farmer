@@ -1,14 +1,15 @@
-/* Public editorial records only. Purchase dates/amounts are not application dates/amounts. */
+/* Public field records. Usage dates and full quantities confirmed by the grower. */
 window.FARMER_TMI = {
  season: 2026,
- weather: { latitude: 36.75, longitude: 126.30, label: '태안군 참고 지점', start: '', end: '', periodConfirmed: false },
+ weather: { latitude: 36.83, longitude: 126.27, label: '태안군 원북면 원이로 인근', start: '2026-06-07', end: '2026-10-15' },
  supplies: [
   {id:'s1',date:'2026-04-24',name:'미즈카네(썬그린)',packKg:20,packs:2,npk:null},
   {id:'s2',date:'2026-04-24',name:'조비 미래로뿌리왕',packKg:20,packs:5,npk:[11,8,9]},
   {id:'s3',date:'2026-05-06',name:'고구마한방',packKg:20,packs:6,npk:[9,9,20]},
   {id:'s4',date:'2026-05-06',name:'포스',packKg:2,packs:6,npk:null},
   {id:'s5',date:'2026-05-11',name:'입상붕사',packKg:1,packs:3,npk:null},
-  {id:'s6',date:'2026-05-11',name:'원예맞춤1호 · 황산가리',packKg:20,packs:2,npk:[0,0,45]}
+  {id:'s6',date:'2026-05-11',name:'원예맞춤1호 · 황산가리',packKg:20,packs:2,npk:[0,0,45]},
+  {id:'s7',date:'2026-05-06',name:'LD흑유 비닐',quantity:3,unit:'개',spec:'0.015 × 90 × 1000 (22cm, 무)',kind:'cover',npk:null}
  ],
  people: [
   {step:'01',label:'방향을 알려준 사람들',name:'농업기술센터 · 군청 · 이웃들',title:'추천은, 고구마였습니다.',body:'무엇을 심어야 할지 몰랐던 부부는 여러 곳에 물었습니다. 농업기술센터에서도, 군청에서도, 주변 분들도 고구마를 추천해 주셨습니다.',fact:'같은 작물을 추천해 주신 여러 사람',foot:'덕분에 가장 넓은 밭에는 고구마를 심기로 했습니다.'},

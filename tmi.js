@@ -15,20 +15,10 @@
   const iso = t => new Date(t).toISOString().slice(0, 10);
   const shortDate = s => `${Number(s.slice(5, 7))}.${Number(s.slice(8, 10))}`;
   const fullDate = s => `${s.slice(0, 4)}년 ${Number(s.slice(5, 7))}월 ${Number(s.slice(8, 10))}일`;
-  const latestDate = () => iso(Date.parse(new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date()) + 'T00:00:00Z') - dayMs);
-  function validateRange(start, end, maxDate) {
-    const a = dateValue(start), b = dateValue(end);
-    if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Error('시작 날짜와 마지막 날짜를 모두 선택해 주세요.');
-    if (start < '1981-01-01') throw new Error('1981년 1월 1일 이후의 날짜를 선택해 주세요.');
-    if (b < a) throw new Error('마지막 날짜는 시작 날짜보다 빠를 수 없습니다.');
-    if (end > maxDate) throw new Error('날씨 자료는 어제까지의 날짜로 조회해 주세요. 최근 자료는 아직 없을 수 있습니다.');
-    if ((b - a) / dayMs + 1 > 366) throw new Error('한 번에 최대 366일의 날씨를 볼 수 있습니다. 기간을 줄여 주세요.');
-    return { a, b };
-  }
   function parseWeather(raw, start, end) {
     const params = raw?.properties?.parameter;
     const units = raw?.parameters;
-    if (!params || units?.T2M_MAX?.units !== 'C' || units?.T2M_MIN?.units !== 'C' || units?.PRECTOTCORR?.units !== 'mm/day' || raw.header?.time_standard !== 'LST') throw new Error('자료 형식을 확인할 수 없습니다. 잠시 후 다시 조회해 주세요.');
+    if (!params || units?.T2M_MAX?.units !== 'C' || units?.T2M_MIN?.units !== 'C' || units?.PRECTOTCORR?.units !== 'mm/day' || raw.header?.time_standard !== 'LST') throw new Error('날씨 자료를 준비하고 있습니다.');
     const fill = raw.header.fill_value ?? -999;
     const read = (key, date) => {
       const v = params[key]?.[date];
@@ -39,18 +29,18 @@
       const date = iso(t), key = date.replaceAll('-', '');
       rows.push({ date, high: read('T2M_MAX', key), low: read('T2M_MIN', key), rain: read('PRECTOTCORR', key) });
     }
-    if (!rows.some(r => r.high !== null || r.low !== null || r.rain !== null)) throw new Error('선택한 기간에 공개된 날씨 자료가 없습니다. 다른 날짜로 조회해 주세요.');
+    if (!rows.some(r => r.high !== null || r.low !== null || r.rain !== null)) throw new Error('재배기간의 날씨 자료가 아직 준비되지 않았습니다.');
     return rows;
   }
   // Kept separate from rendering so missing-data and date logic can be checked without network calls.
-  window.FarmerWeather = Object.freeze({ validateRange, parseWeather });
+  window.FarmerWeather = Object.freeze({ parseWeather });
 
   function showSupplies(filter = 'all') {
-    const list = data.supplies.filter(s => filter === 'all' || (filter === 'npk' ? s.npk : !s.npk));
+    const list = data.supplies.filter(s => filter === 'all' || (filter === 'npk' ? s.npk : !s.npk)).sort((a, b) => a.date.localeCompare(b.date));
     $('supply-records').replaceChildren(...list.map(s => {
       const card = el('article', null, 'supply-card');
-      const meta = el('div', null, 'supply-meta'); meta.append(el('span', fullDate(s.date)), el('span', s.npk ? '성분 표기 기록' : '자재 구매 기록'));
-      const amount = el('p', `${s.packKg}kg × ${s.packs}포`, 'supply-amount'); amount.append(el('b', `총 ${num(s.packKg * s.packs)}kg 구매`));
+      const meta = el('div', null, 'supply-meta'); meta.append(el('span', fullDate(s.date)), el('span', s.kind === 'cover' ? '밭을 덮는 자재' : '밭에 사용한 자재'));
+      const amount = el('p', s.packKg ? `${s.packKg}kg × ${s.packs}포` : s.spec, 'supply-amount'); amount.append(el('b', s.packKg ? `총 ${num(s.packKg * s.packs)}kg 사용` : `총 ${s.quantity}${s.unit} 사용`));
       card.append(meta, el('h4', s.name), amount);
       if (s.npk) {
         const profile = el('div', null, 'npk-profile');
@@ -60,7 +50,7 @@
           labelBox.append(el('b', `${s.npk[i]}`), el('span', label)); col.append(bar, labelBox); profile.append(col);
         });
         card.append(profile, el('p', `제품명에 기록된 성분 표기 ${s.npk.join('–')} · 같은 눈금으로 비교`, 'supply-caption'));
-      } else card.append(el('p', '성분 표기 확인 전 · 구매 내역만 표시합니다.', 'unclassified'));
+      } else card.append(el('p', s.kind === 'cover' ? '밭을 덮는 비닐 · 영양분 성분 그래프에서 제외했습니다.' : '기록된 수량 전부 사용 · 성분 표기는 추가 확인 중입니다.', 'unclassified'));
       return card;
     }));
   }
@@ -86,21 +76,15 @@
   addEventListener('scroll', () => { if (!scrollQueued) { requestAnimationFrame(progress); scrollQueued = true; } }, { passive: true });
   addEventListener('resize', progress); progress();
 
-  let rows = [], mode = 'temperature', selectedDate = '', active = null, requestId = 0;
-  const cache = new Map();
-  const startInput = $('weather-start'), endInput = $('weather-end');
-  const maxDate = latestDate();
-  startInput.max = endInput.max = maxDate;
-  startInput.value = data.weather.start || ''; endInput.value = data.weather.end || '';
+  let rows = [], mode = 'temperature', selectedDate = '';
   $('weather-location').textContent = data.weather.label;
-  $('weather-coordinates').textContent = `참고 지점: 북위 ${data.weather.latitude.toFixed(2)}°, 동경 ${data.weather.longitude.toFixed(2)}°. 농장의 정확한 위치를 의미하지 않습니다.`;
-  if (data.weather.periodConfirmed && data.weather.start && data.weather.end) $('weather-period-note').textContent = '기록된 재배기간의 태안 참고 날씨입니다. 날짜를 바꿔 다른 기간도 살펴볼 수 있습니다.';
+  $('weather-coordinates').textContent = `참고 지점: 북위 ${data.weather.latitude.toFixed(2)}°, 동경 ${data.weather.longitude.toFixed(2)}°. 원북면 원이로 인근을 대표하는 참고 좌표이며 농장의 정확한 위치를 의미하지 않습니다.`;
   const setMessage = (text, error = false) => { $('weather-message').textContent = text; $('weather-message').classList.toggle('error', error); };
   const svgNS = 'http://www.w3.org/2000/svg';
   function sv(tag, attrs, text) { const n = document.createElementNS(svgNS, tag); Object.entries(attrs || {}).forEach(([k, v]) => n.setAttribute(k, v)); if (text != null) n.textContent = text; return n; }
   function renderChart() {
     const chart = $('weather-chart');
-    chart.replaceChildren(sv('title', { id: 'weather-chart-title' }, mode === 'rain' ? '선택한 기간의 일별 강수량' : '선택한 기간의 일별 최고·최저기온'), sv('desc', { id: 'weather-chart-desc' }, '누락된 값은 빈 구간으로 표시합니다. 아래 일별 수치 표에서 같은 자료를 읽을 수 있습니다.'));
+    chart.replaceChildren(sv('title', { id: 'weather-chart-title' }, mode === 'rain' ? '재배기간의 일별 강수량' : '재배기간의 일별 최고·최저기온'), sv('desc', { id: 'weather-chart-desc' }, '누락된 값은 빈 구간으로 표시합니다. 아래 일별 수치 표에서 같은 자료를 읽을 수 있습니다.'));
     const values = rows.flatMap(r => mode === 'rain' ? [r.rain] : [r.high, r.low]).filter(v => v !== null);
     if (!values.length) { chart.append(sv('text', { x: 450, y: 130, 'text-anchor': 'middle', fill: '#766a61' }, '이 항목의 공개 자료가 없습니다.')); return; }
     let lo = mode === 'rain' ? 0 : Math.floor((Math.min(...values) - 2) / 5) * 5;
@@ -174,39 +158,18 @@
     renderChart(); renderCalendar();
   }
   document.querySelectorAll('[data-weather-mode]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.weatherMode; renderMode(); }));
-  [startInput, endInput].forEach(input => input.addEventListener('input', () => {
-    requestId++; active?.abort(); active = null; $('weather-submit').disabled = false; $('weather-form').removeAttribute('aria-busy'); $('weather-results').hidden = true; $('weather-empty').hidden = false;
-    setMessage('선택한 날짜로 날씨 기록을 조회해 주세요.');
-  }));
-  $('weather-form').addEventListener('submit', async e => {
-    e.preventDefault();
-    const start = startInput.value, end = endInput.value;
-    try { validateRange(start, end, maxDate); } catch (err) { setMessage(err.message, true); return; }
-    const id = ++requestId; active?.abort(); const controller = new AbortController(); active = controller;
-    const key = `${data.weather.latitude},${data.weather.longitude}:${start}:${end}`;
-    $('weather-submit').disabled = true; $('weather-form').setAttribute('aria-busy', 'true');
-    $('weather-results').hidden = true; $('weather-empty').hidden = false; setMessage('NASA POWER에서 날씨 기록을 불러오고 있습니다…');
-    let timeout = false;
-    const timer = setTimeout(() => { timeout = true; controller.abort(); }, 30000);
-    try {
-      if (cache.has(key)) rows = cache.get(key);
-      else {
-        const query = new URLSearchParams({ parameters: 'T2M_MAX,T2M_MIN,PRECTOTCORR', community: 'AG', latitude: String(data.weather.latitude), longitude: String(data.weather.longitude), start: start.replaceAll('-', ''), end: end.replaceAll('-', ''), format: 'JSON' });
-        const response = await fetch(`https://power.larc.nasa.gov/api/temporal/daily/point?${query}`, { signal: controller.signal, credentials: 'omit' });
-        if (!response.ok) throw new Error('날씨 제공처에 연결하지 못했습니다. 잠시 후 다시 조회해 주세요.');
-        const result = parseWeather(await response.json(), start, end);
-        if (id !== requestId) return;
-        cache.set(key, result); rows = result;
-      }
-      if (id !== requestId) return;
-      renderResults(); setMessage(`${start}부터 ${end}까지의 지역 참고 날씨입니다. 자료가 없는 날짜는 비워 두었습니다.`);
-    } catch (err) {
-      if (id !== requestId) return;
-      setMessage(timeout ? '조회 시간이 길어지고 있습니다. 기간을 줄이거나 잠시 후 다시 조회해 주세요.' : (err.name === 'TypeError' ? '날씨를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 조회해 주세요.' : err.message), true);
-    } finally {
-      clearTimeout(timer);
-      if (id === requestId) { $('weather-submit').disabled = false; $('weather-form').removeAttribute('aria-busy'); active = null; }
-    }
-  });
-  if (data.weather.periodConfirmed && startInput.value && endInput.value) $('weather-form').requestSubmit();
+  try {
+    const snapshot = window.FARMER_TMI_WEATHER;
+    const raw = snapshot?.data;
+    const point = raw?.geometry?.coordinates;
+    if (!raw || raw.header?.start !== data.weather.start.replaceAll('-', '') || raw.header?.end !== data.weather.end.replaceAll('-', '') || !point || Math.abs(point[0] - data.weather.longitude) > .001 || Math.abs(point[1] - data.weather.latitude) > .001) throw new Error('재배기간의 날씨 자료를 준비하고 있습니다.');
+    rows = parseWeather(raw, data.weather.start, data.weather.end);
+    renderResults();
+    $('weather-retrieved').textContent = `자료 확보일: ${snapshot.retrievedAt.slice(0, 10)} (UTC). 최근 기상자료는 제공처의 보정으로 달라질 수 있습니다.`;
+    setMessage('심은 날부터 수확한 날까지, 원북면 인근의 지역 참고 날씨입니다.');
+  } catch (err) {
+    $('weather-results').hidden = true;
+    $('weather-empty').hidden = false;
+    setMessage(err.message, true);
+  }
 })();
