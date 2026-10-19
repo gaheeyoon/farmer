@@ -503,9 +503,11 @@
       card.append(detail);
       if (isPickup(o)) card.append(node('p', `수령 장소: ${pickupPlace}`, 'result-recipient'));
       const total = node("div", undefined, "result-total");
-      total.append(node("span", "주문 금액"), node("strong", money(o.total)));card.append(total);
+      const awaitingPayment = container.id === "lookup-cards" && o.status === "pending" && Number(o.total) > 0;
+      total.append(node("span", awaitingPayment ? "입금하실 금액" : "주문 금액"), node("strong", money(o.total)));
+      if (awaitingPayment) {total.classList.add('result-total-pending');total.append(window.FarmerBank.create());}
+      card.append(total);
       card.append(node("span", (o.delivered_at ? (isPickup(o) ? "수령 완료 " : "배송 완료 ") + date(o.delivered_at) : "주문일 " + date(o.created_at)), "result-date"));
-      if (container.id === "lookup-cards" && o.status === "pending" && Number(o.total) > 0) card.append(window.FarmerBank.create({pending:true}));
       container.append(card);
     }
   }
