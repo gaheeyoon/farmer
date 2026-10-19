@@ -724,11 +724,10 @@
         weight:
           "혼합 / " +
           [...new Set(products.map((p) => p.weight_grams / 1000 + "kg"))].join(", "),
-        price: products.filter(p => !isPickup(p))
-          .map((p) => p.weight_grams / 1000 + "kg " + money(p.price))
+        price: products
+          .map((p) => p.weight_grams / 1000 + "kg " + money(p.price) + (isPickup(p) ? "(방문수령)" : ""))
           .join(" / "),
         shipping: shipping === 0 ? '무료배송' : money(shipping),
-        pickup: products.filter(isPickup).map(p => `${p.weight_grams/1000}kg ${money(p.price)}`).join(' / '),
       };
       document
         .querySelectorAll("[data-catalog]")
