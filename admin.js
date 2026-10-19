@@ -34,7 +34,7 @@
   const canSelect = o => o && nextStage[o.status] && !(o.awaiting_address && o.status === "confirmed");
   const nextStage = { pending: "confirmed", confirmed: "shipped", shipped: "delivered" };
   let bulkPending = null, bulkBusy = false;
-  const locked = () => loading || bulkBusy || !!bulkPending;
+  const locked = () => loading || bulkBusy || !!bulkPending || window.FarmerDelivery.locked();
   const selectedOrders = () => state.orders.filter(o => selected.has(o.id));
   const requestId = (payload) => {
     const key = JSON.stringify(payload);
@@ -58,6 +58,7 @@
   };
   function clearPrivateView() {
     version++;
+    window.FarmerDelivery.clear();
     window.FarmerGifts.clear();
     window.FarmerGiftLinks.clear();
     window.FarmerFinance.clear();
@@ -354,6 +355,7 @@
   function openOrder(o) {
     if (locked()) return;
     state.current = o;
+    window.FarmerDelivery.setOrder(o);
     $("order-heading").textContent = o.order_number;
     $("order-details").replaceChildren();
     const details = [
@@ -429,6 +431,7 @@
     $("order-dialog").showModal();
   }
   async function changeOrder(status) {
+    if (locked()) return;
     const o = state.current;
     if (!o) return;
     if (status === "shipped" && !isPickup(o) && !$("carrier").value.trim()) {
@@ -549,7 +552,7 @@
   document
     .querySelectorAll("[data-close]")
     .forEach((b) =>
-      b.addEventListener("click", () => $(b.dataset.close).close()),
+      b.addEventListener("click", () => {if (b.dataset.close === "order-dialog" && !window.FarmerDelivery.canClose()) return;$(b.dataset.close).close();}),
     );
   $("open-stock").addEventListener("click", () => {
     if (!state.summary) return;
@@ -583,6 +586,12 @@
     } finally {
       $("stock-submit").disabled = false;
     }
+  });
+  window.FarmerDelivery.init(async () => {
+    const currentVersion = version;
+    $("order-dialog").close();
+    try {await load();if (currentVersion === version) message("dashboard-message", "배송 정보를 수정했습니다.");}
+    catch {if (currentVersion === version) message("dashboard-message", "배송 정보는 저장했습니다. 목록을 새로고침해 주세요.");}
   });
   window.FarmerFinance.init(() => !locked());
   window.FarmerDiscounts.init();

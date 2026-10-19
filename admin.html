@@ -847,7 +847,26 @@
           ×
         </button>
       </div>
+      <button type="button" id="edit-delivery-open" class="button secondary">배송 정보 수정</button>
+      <p id="delivery-edit-availability" class="notice"></p>
       <dl class="details" id="order-details"></dl>
+      <form id="delivery-edit-form" hidden>
+        <h3>배송 정보 수정</h3><p id="delivery-edit-context" class="notice"></p>
+        <fieldset id="delivery-edit-fields" style="border:0;padding:0;margin:0;min-width:0"><legend class="sr-only">수정할 배송 정보</legend>
+          <div class="row"><div class="field"><label for="edit-delivery-recipient_name">받는 분 성함 *</label><input id="edit-delivery-recipient_name" maxlength="40" required autocomplete="off"></div><div class="field"><label for="edit-delivery-recipient_phone">받는 분 연락처 *</label><input id="edit-delivery-recipient_phone" type="tel" data-phone inputmode="tel" maxlength="13" required autocomplete="off"></div></div>
+          <div id="delivery-edit-address-fields">
+            <div class="row" style="align-items:end"><div class="field"><label for="edit-delivery-postal_code">우편번호 *</label><input id="edit-delivery-postal_code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" required autocomplete="off"></div><button type="button" id="edit-delivery-search" class="button secondary">주소 검색</button></div>
+            <div id="delivery-edit-search-panel" hidden><div class="dialog-head"><span id="delivery-edit-search-status" role="status"></span><button type="button" id="edit-delivery-search-close" class="close" aria-label="주소 검색 닫기">×</button></div><div id="delivery-edit-search-embed"></div></div>
+            <div class="field"><label for="edit-delivery-address">배송 주소 *</label><input id="edit-delivery-address" maxlength="200" minlength="5" required autocomplete="off"></div>
+            <div class="field"><label for="edit-delivery-address_detail">상세 주소</label><input id="edit-delivery-address_detail" maxlength="120" autocomplete="off"></div>
+          </div>
+          <div class="field"><label for="edit-delivery-memo" id="delivery-edit-memo-label">배송 메모</label><textarea id="edit-delivery-memo" maxlength="300" rows="2"></textarea></div>
+          <div id="delivery-edit-tracking-fields" class="row"><div class="field"><label for="edit-delivery-carrier">택배사 / 배송 방법</label><input id="edit-delivery-carrier" maxlength="60" placeholder="예: 우체국택배"></div><div class="field"><label for="edit-delivery-tracking_number">송장번호</label><input id="edit-delivery-tracking_number" maxlength="100"></div></div>
+        </fieldset>
+        <p id="delivery-edit-status" class="message" role="status"></p>
+        <div class="actions"><button id="edit-delivery-cancel" type="button" class="button secondary">수정 취소</button><button id="edit-delivery-save" type="submit" class="button">배송 정보 저장</button></div>
+      </form>
+      <div id="order-fulfillment-controls">
       <div id="shipping-fields" class="row" hidden>
         <div class="field">
           <label for="carrier">택배사 / 배송 방법</label
@@ -864,6 +883,7 @@
       </div>
       <p id="order-change-help" class="change-summary"></p>
       <div class="actions" id="order-actions"></div>
+      </div>
       <p class="message" id="order-message" role="status"></p>
     </dialog>
     <dialog id="stock-dialog">
@@ -923,6 +943,7 @@
     <script src="admin-discounts.js?v=20261018-codes1"></script>
     <script src="simulation-math.js?v=20261019-giftplan1"></script>
     <script src="admin-simulator.js?v=20261019-giftplan1"></script>
-    <script src="admin.js?v=20261019-stagekg1"></script>
+    <script src="admin-delivery.js?v=20261019-1"></script>
+    <script src="admin.js?v=20261019-deliveryedit1"></script>
   </body>
 </html>
