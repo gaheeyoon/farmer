@@ -11,12 +11,12 @@
     $("gift-message").classList.toggle("error", error);
   };
   const read = () => cards().map(card => Object.fromEntries([...card.querySelectorAll("[data-gift-field]")].map(el =>
-    [el.dataset.giftField, el.dataset.giftField === "quantity" ? Number(el.value) : el.value.trim()])));
+    [el.dataset.giftField, el.dataset.giftField === "quantity" ? Number(el.value) : el.value.trim()]))).map(d=>({...d,gift_sponsor:$("gift-sponsor").value}));
   function totalWeight() {
     return read().reduce((sum, d) => sum + (products.find(p => p.id === d.product_id)?.weight_grams || 0) * d.quantity, 0);
   }
   function update() {
-    const list = cards(), valid = list.length && read().every(d => products.some(p => p.id === d.product_id && p.available) && Number.isInteger(d.quantity) && d.quantity >= 1 && d.quantity <= 99);
+    const list = cards(), valid = ["윤가희","홍세환"].includes($("gift-sponsor").value) && list.length && read().every(d => products.some(p => p.id === d.product_id && p.available) && Number.isInteger(d.quantity) && d.quantity >= 1 && d.quantity <= 99);
     list.forEach((card, i) => {
       card.querySelector("[data-gift-number]").textContent = i + 1;
       card.querySelector("[data-gift-remove]").hidden = list.length === 1;
@@ -34,6 +34,7 @@
     busy = false;
     pending = null;
     products = [];
+    $("gift-sponsor").value="";
     $("gift-deliveries").replaceChildren();
     tell("");
     if ($("gift-dialog").open) $("gift-dialog").close();
@@ -175,6 +176,7 @@
     else if (e.target.closest("[data-gift-search]")) search(card);
     else if (e.target.closest("[data-gift-close-search]")) { card.querySelector("[data-gift-search-panel]").hidden = true; card.querySelector("[data-gift-search]").focus(); }
   });
+  $("gift-sponsor").addEventListener("change",()=>{if(!frozen()){tell("");update();}});
   $("gift-add").addEventListener("click", () => addCard(true));
   $("gift-close").addEventListener("click", () => { if (!pending) clear(); });
   $("gift-dialog").addEventListener("cancel", e => { e.preventDefault(); if (!pending) clear(); });

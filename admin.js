@@ -12,6 +12,7 @@
   const isPickup = o => o?.fulfillment_method === 'pickup' || o?.product_id === 'hopungmi-5kg-pickup' || String(o?.product_name || '').includes('방문 수령');
   const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',delivered:'수령 완료',cancelled:'취소'};
   const stageLabel = (status,orders) => orders.length && orders.every(isPickup) ? pickupStatuses[status] : statuses[status];
+  const freeGiftOwner = o => o.order_kind==='gift' ? o.gift_sponsor||'미지정' : Number(o.unit_price)>0&&Number(o.discount_amount)>=Number(o.unit_price) ? ({'고구맙습니다홍세환선물용':'홍세환','고구맙습니다윤가희선물용':'윤가희'})[o.discount_code]||'' : '';
   const statusText = o => o.awaiting_address && o.status === "confirmed" ? "입금 확인 · 주소 입력 대기" : isPickup(o) ? pickupStatuses[o.status] : o.order_kind === "gift" && o.status === "confirmed" ? "배송 준비" : statuses[o.status];
   const number = (n) =>
     Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
@@ -225,6 +226,7 @@
       if (o.is_link_gift && o.order_kind === "sale") link.after(node("span", "선물 구매", "badge gift"));
       if (o.order_kind === "gift") link.after(node("span", "선물 · 무상", "badge gift"));
       const customer = cell(row, o.customer_name);
+      if(freeGiftOwner(o))customer.append(node("small","무상 선물: "+freeGiftOwner(o)));
       customer.append(
         node("small", o.phone),
         node("small", "받는 분: " + (o.recipient_name || o.customer_name)),
@@ -365,7 +367,8 @@
     $("order-heading").textContent = o.order_number;
     $("order-details").replaceChildren();
     const details = [
-      ["주문 구분", o.order_kind === "gift" ? "선물 · 무상 발송" : "일반 주문"],
+      ["주문 구분", o.order_kind === "gift" ? "선물 · 무상 발송" : freeGiftOwner(o) ? "무상 선물 코드 주문" : "일반 주문"],
+      ["선물하는 사람", freeGiftOwner(o)||"해당 없음"],
       ["상태", o.deleted_at ? "삭제됨 · 취소" : statusText(o)],
       ["주문자", o.customer_name],
       ["받는 분", o.recipient_name || o.customer_name],

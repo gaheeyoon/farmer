@@ -7,9 +7,9 @@
  const message=(text,error=false)=>{$('sim-message').textContent=text;$('sim-message').classList.toggle('error',error);};
  const todayYear=()=>Number(new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Seoul'}).format(new Date()));
  const ids=['sim-price2','sim-price5','sim-qty2','sim-qty5','sim-gift-qty5','sim-shipping','sim-packing'];
- let base=null,catalog=null,epoch=0,loading=false,initialized=false;
+ let base=null,catalog=null,gifts=null,epoch=0,loading=false,initialized=false;
  function hideResults(){for(const id of ['sim-results','sim-comparison'])$(id).hidden=true;$('sim-placeholder').hidden=false;for(const id of ['sim-profit','sim-total-income','sim-total-cost','sim-base-income','sim-revenue','sim-base-expense','sim-shipping-cost','sim-packing-cost','sim-break-even'])$(id).textContent='—';for(const id of ['sim-profit-note','sim-break-even-note','sim-impact'])$(id).textContent='';$('sim-bars').replaceChildren();$('sim-comparison-rows').replaceChildren();}
- function hideData(){base=null;catalog=null;$('sim-data').hidden=true;hideResults();for(const id of ['sim-expense','sim-income','sim-stock','sim-updated'])$(id).textContent='—';for(const id of ['sim-categories'])$(id).replaceChildren();for(const id of ['sim-baseline-note','sim-input-message','sim-plan-note'])$(id).textContent='';}
+ function hideData(){base=null;catalog=null;gifts=null;$('sim-gift-registered5').value=0;$('sim-gift-people').replaceChildren();$('sim-gift-count-note').textContent='';$('sim-gift-total').textContent='';$('sim-data').hidden=true;hideResults();for(const id of ['sim-expense','sim-income','sim-stock','sim-updated'])$(id).textContent='—';for(const id of ['sim-categories'])$(id).replaceChildren();for(const id of ['sim-baseline-note','sim-input-message','sim-plan-note'])$(id).textContent='';}
  function disabled(value){$('sim-year').disabled=value;$('sim-refresh').disabled=value;$('sim-form').querySelectorAll('input,button').forEach(e=>e.disabled=value);}
  function fillStock(){if(!base||!$('sim-gift-qty5').validity.valid||$('sim-gift-qty5').value==='')return;const plan=math.planStock(Math.max(0,base.availableKg-Number($('sim-gift-qty5').value)*5));$('sim-qty5').value=plan.qty5;$('sim-qty2').value=plan.qty2;}
  function resetPrices(){if(!catalog)return;for(const k of [2,5])$('sim-price'+k+'-range').max=50000;$('sim-price2').value=catalog.find(p=>p.id==='hopungmi-2kg').price;$('sim-price5').value=catalog.find(p=>p.id==='hopungmi-5kg').price;}
@@ -35,6 +35,7 @@
  function render(){
   syncSliders();
   if(!base||loading)return;hideResults();$('sim-plan-note').textContent='';
+  const planned=Number($('sim-gift-qty5').value);$('sim-gift-total').textContent=$('sim-gift-qty5').value!==''&&Number.isInteger(planned)&&planned>=0?`5kg 선물 합계 ${number(gifts.totals.qty5+planned)}상자 · 등록 ${number(gifts.totals.qty5)} + 추가 계획 ${number(planned)}`:'';
   const p=input();if(!p)return;
   try{
    const r=math.calculate(p),rows=math.comparison(p);
@@ -61,15 +62,19 @@
   try{
    const responses=await Promise.allSettled([
     api.admin('farmer_admin_finance_report',{p_year:year,p_kind:'',p_search:'',p_offset:0}),
-    api.admin('farmer_admin_summary'),api.rpc('farmer_catalog')
+    api.admin('farmer_admin_summary'),api.rpc('farmer_catalog'),api.admin('farmer_admin_free_gift_summary',{p_year:year})
    ]);
    if(ticket!==epoch)return;const failures=responses.filter(r=>r.status==='rejected');if(failures.length)throw failures[0].reason;
-   const [report,inventory,products]=responses.map(r=>r.value);
+   const [report,inventory,products,giftReport]=responses.map(r=>r.value);
    if(!report?.summary||!Array.isArray(report.categories)||!Array.isArray(products?.products)||!inventory)throw Error('장부·재고·현재 판매가를 확인하지 못했습니다. 다시 불러와 주세요.');
    const s=report.summary;
    const expense=Number(s.expense),income=Number(s.order_income)+Number(s.manual_income),availableKg=Number(inventory.available_kg);
    if(Number(report.year)!==year||![expense,income].every(v=>Number.isSafeInteger(v)&&v>=0)||!Number.isFinite(availableKg)||availableKg<0||!['hopungmi-2kg','hopungmi-5kg'].every(id=>products.products.some(p=>p.id===id&&Number.isSafeInteger(p.price)&&p.price>=0)))throw Error('장부·재고·현재 판매가를 확인하지 못했습니다. 다시 불러와 주세요.');
-   base={expense,income,availableKg,year};catalog=products.products;
+   if(giftReport?.year!==year||!giftReport?.totals||!Array.isArray(giftReport.people)||!['boxes','qty5','qty2','pending_boxes','reserved_boxes'].every(k=>Number.isSafeInteger(giftReport.totals[k])&&giftReport.totals[k]>=0))throw Error('무상 선물 수량을 확인하지 못했습니다. 다시 불러와 주세요.');
+   base={expense,income,availableKg,year};catalog=products.products;gifts=giftReport;
+   $('sim-gift-registered5').value=gifts.totals.qty5;
+   $('sim-gift-count-note').textContent=`${year}년 등록 기준 · 전체 무상 선물 ${number(gifts.totals.boxes)}상자 / ${number(gifts.totals.kg)}kg${gifts.totals.qty2?' · 2kg '+number(gifts.totals.qty2)+'상자 포함':''} · 접수 대기 ${number(gifts.totals.pending_boxes)}상자. 취소·삭제 제외.`;
+   for(const person of gifts.people){const line=node('p',person.sponsor+' · 5kg '+number(person.qty5)+'상자'+(person.qty2?' / 2kg '+number(person.qty2)+'상자':''),'sim-note');$('sim-gift-people').append(line);}
    $('sim-expense').textContent=money(expense);$('sim-income').textContent=money(income);$('sim-stock').textContent=number(availableKg)+'kg';$('sim-updated').textContent=year+'년 장부 · '+new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
    for(const c of report.categories)$('sim-categories').append(node('span',c.category+' '+money(c.amount)));
    if(!report.categories.length)$('sim-categories').append(node('span','아직 기록한 지출이 없습니다.'));
