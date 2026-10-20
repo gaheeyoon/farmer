@@ -808,7 +808,7 @@
         <div><p class="eyebrow">고마운 분들께 보내는 선물</p><h2 id="gift-heading">선물 주문 등록</h2></div>
         <button class="close" id="gift-close" type="button" aria-label="선물 주문 닫기">×</button>
       </div>
-      <p class="sub">받는 분께 상품·배송비를 청구하지 않습니다. 등록하면 재고를 차감하고 배송 준비로 저장합니다.</p>
+      <p class="sub">받는 분께 상품·배송비를 청구하지 않습니다. 등록하면 재고를 차감하고 배송·수령 준비로 저장합니다.</p>
       <form id="gift-form">
         <fieldset id="gift-fields">
           <legend class="sr-only">선물 상품과 받는 분</legend>
@@ -832,7 +832,8 @@
           <div class="field"><label data-gift-label="recipient_name">받는 분 성함</label><input data-gift-field="recipient_name" maxlength="40" required autocomplete="name" /></div>
           <div class="field"><label data-gift-label="recipient_phone">연락처</label><input data-gift-field="recipient_phone" type="tel" maxlength="13" required inputmode="tel" placeholder="010-0000-0000" autocomplete="tel-national" /></div>
         </div>
-        <div class="gift-postcode">
+        <div data-gift-pickup class="notice" hidden><strong>방문 수령 장소</strong><br>원북면 원이로 804-59<br>홍세환 소셜라운지</div>
+        <div data-gift-shipping-fields><div class="gift-postcode">
           <div class="field"><label data-gift-label="postal_code">우편번호</label><input data-gift-field="postal_code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" required autocomplete="postal-code" /></div>
           <button type="button" class="button secondary" data-gift-search>주소 검색</button>
         </div>
@@ -842,6 +843,7 @@
         </div>
         <div class="field"><label data-gift-label="address">주소</label><input data-gift-field="address" minlength="5" maxlength="200" required autocomplete="address-line1" /></div>
         <div class="field"><label data-gift-label="address_detail">상세 주소 <small>선택</small></label><input data-gift-field="address_detail" maxlength="120" autocomplete="address-line2" /></div>
+        </div>
         <div class="field"><label data-gift-label="memo">배송 메모 <small>선택</small></label><input data-gift-field="memo" maxlength="300" placeholder="예: 문 앞에 놓아 주세요" /></div>
       </section>
     </template>
@@ -944,7 +946,7 @@
     <dialog id="gift-links-dialog" aria-labelledby="gl-title"><div class="actions" style="justify-content:space-between"><h2 id="gl-title">선물 링크 관리</h2><button id="gl-close" class="button secondary" type="button">닫기</button></div><p class="notice">관리자는 모든 선물 링크를 확인하고 복사할 수 있습니다. 받는 분의 주소 등록은 입금 확인 후 가능하며, 주소 등록 전에는 발송할 수 없습니다. 기한이 지난 선물은 연장하거나 취소해 주세요. 취소하면 확보한 재고가 복구되며, 입금된 금액의 환불은 별도로 처리해야 합니다.</p><p id="gl-summary" class="message"></p><details><summary>무상 선물 링크 만들기</summary><form id="gl-form"><fieldset id="gl-fields"><div class="row"><div class="field"><label for="gl-sender">보내는 분 *</label><input id="gl-sender" required maxlength="40" value="홍세환"></div><div class="field"><label for="gl-recipient">받는 분 이름 또는 호칭 *</label><input id="gl-recipient" required maxlength="40"></div></div><div class="row"><div class="field"><label for="gl-product">상품 *</label><select id="gl-product" required></select></div><div class="field"><label for="gl-quantity">상자 수 *</label><input id="gl-quantity" type="number" required min="1" max="99" step="1" value="1"></div></div><div class="field"><label for="gl-text">선물 메시지</label><textarea id="gl-text" maxlength="300" rows="3"></textarea></div><div class="field"><label for="gl-days">주소 등록 기한 (일) *</label><input id="gl-days" type="number" min="1" max="90" value="30" required></div></fieldset><button id="gl-create" class="button" type="submit">무상 선물 링크 만들기</button></form></details><p id="gl-message" class="message" role="status"></p><button id="gl-retry" class="button" type="button" hidden>처리 결과 다시 확인</button><div class="actions" style="margin-top:20px"><button id="gl-refresh" class="button secondary" type="button">새로고침</button><a href="./#gift" class="button secondary" target="_blank" rel="noopener">선물 구매 페이지 (새 창)</a></div><div id="gl-rows"></div><div class="pagination"><button id="gl-prev" type="button" class="button secondary">이전</button><span id="gl-page"></span><button id="gl-next" type="button" class="button secondary">다음</button></div></dialog><footer class="farmer-footer" aria-label="판매자 정보"><div class="farmer-footer-inner"><div class="farmer-footer-top"><div><a class="farmer-footer-brand" href="./">어쩌다 농부</a><p class="farmer-footer-tagline">첫 번째 고구마, 고구맙습니다.</p></div><nav class="farmer-footer-links" aria-label="이용 정책"><a href="policies.html#terms">이용약관</a><a href="policies.html#privacy"><strong>개인정보처리방침</strong></a><a href="https://www.ftc.go.kr/bizCommPop.do?wrkr_no=7640202713" target="_blank" rel="noopener noreferrer">사업자정보 확인 <span class="farmer-footer-external" aria-hidden="true">↗</span><span class="farmer-footer-sr"> (새 창)</span></a></nav></div><dl class="farmer-footer-details"><div><dt>상호</dt><dd>홍세환소셜라운지</dd></div><div><dt>대표자</dt><dd>홍세환</dd></div><div><dt>사업자등록번호</dt><dd>764-02-02713</dd></div><div><dt>통신판매업 신고</dt><dd>2025-충남태안-0053</dd></div><div class="farmer-footer-address"><dt>사업장 주소</dt><dd>충청남도 태안군 원북면 원이로 804-59</dd></div><div><dt>고객 문의</dt><dd><a href="tel:01051285171">010-5128-5171</a></dd></div><div class="farmer-footer-email"><dt>이메일</dt><dd><a href="mailto:a5312559@gmail.com">a5312559@gmail.com</a><div class="farmer-footer-payment"><aside class="bank-transfer" data-bank-transfer aria-label="입금 계좌 안내"><div class="bank-transfer-row"><span class="bank-transfer-number">국민 697201-00-081099</span><button class="bank-transfer-copy" type="button" aria-label="은행과 계좌번호 복사">복사하기</button></div></aside></div></dd></div><div><dt>개인정보 보호책임자</dt><dd>윤가희 · <a href="tel:01051285171">010-5128-5171</a></dd></div></dl><div class="farmer-footer-bottom"><span>© 2026 홍세환소셜라운지</span><div><a href="admin.html">농부 관리실</a><a href="#top">처음으로 ↑</a></div></div></div></footer><script src="payment-config.js?v=20261019-bank"></script><script src="bank-transfer.js?v=20261019-3"></script>
     <script src="farmer-config.js"></script>
     <script src="farmer-api.js?v=20261018-session1"></script>
-    <script src="gift-common.js?v=20261019-3"></script><script src="admin-gift-links.js?v=20261019-adminlinks3"></script><script src="admin-gifts.js?v=20261020-sponsor1"></script>
+    <script src="gift-common.js?v=20261019-3"></script><script src="admin-gift-links.js?v=20261019-adminlinks3"></script><script src="admin-gifts.js?v=20261020-giftpickup1"></script>
     <script src="admin-finance.js?v=20261018-codes1"></script>
     <script src="admin-discounts.js?v=20261018-codes1"></script>
     <script src="simulation-math.js?v=20261019-giftplan1"></script>
@@ -952,6 +954,6 @@
     <script src="admin-delivery.js?v=20261019-1"></script>
     <script src="admin-xlsx.js?v=20261020-1"></script>
     <script src="admin-order-tools.js?v=20261020-sponsor1"></script>
-    <script src="admin.js?v=20261020-sponsor1"></script>
+    <script src="admin.js?v=20261020-giftpickup1"></script>
   </body>
 </html>

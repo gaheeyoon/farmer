@@ -13,7 +13,7 @@
   const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',delivered:'수령 완료',cancelled:'취소'};
   const stageLabel = (status,orders) => orders.length && orders.every(isPickup) ? pickupStatuses[status] : statuses[status];
   const freeGiftOwner = o => o.order_kind==='gift' ? o.gift_sponsor||'미지정' : Number(o.unit_price)>0&&Number(o.discount_amount)>=Number(o.unit_price) ? ({'고구맙습니다홍세환선물용':'홍세환','고구맙습니다윤가희선물용':'윤가희'})[o.discount_code]||'' : '';
-  const statusText = o => o.awaiting_address && o.status === "confirmed" ? "입금 확인 · 주소 입력 대기" : isPickup(o) ? pickupStatuses[o.status] : o.order_kind === "gift" && o.status === "confirmed" ? "배송 준비" : statuses[o.status];
+  const statusText = o => o.awaiting_address && o.status === "confirmed" ? "입금 확인 · 주소 입력 대기" : o.order_kind === "gift" && o.status === "confirmed" ? (isPickup(o) ? "수령 준비" : "배송 준비") : isPickup(o) ? pickupStatuses[o.status] : statuses[o.status];
   const number = (n) =>
     Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
   const date = (v) =>

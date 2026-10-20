@@ -10,14 +10,25 @@
     $("gift-message").textContent = text;
     $("gift-message").classList.toggle("error", error);
   };
-  const read = () => cards().map(card => Object.fromEntries([...card.querySelectorAll("[data-gift-field]")].map(el =>
-    [el.dataset.giftField, el.dataset.giftField === "quantity" ? Number(el.value) : el.value.trim()]))).map(d=>({...d,gift_sponsor:$("gift-sponsor").value}));
+  const isPickup = card => field(card,"product_id").value === 'hopungmi-5kg-pickup';
+  const read = () => cards().map(card => {
+    const d=Object.fromEntries([...card.querySelectorAll("[data-gift-field]")].map(el=>[el.dataset.giftField,el.dataset.giftField==="quantity"?Number(el.value):el.value.trim()]));
+    return {...d,gift_sponsor:$("gift-sponsor").value,...(isPickup(card)?{postal_code:'',address:'',address_detail:''}:{})};
+  });
+  function deliveryMode(card){
+    const pickup=isPickup(card);card.querySelector('[data-gift-shipping-fields]').hidden=pickup;card.querySelector('[data-gift-pickup]').hidden=!pickup;
+    for(const key of ['postal_code','address','address_detail']){const e=field(card,key);e.disabled=pickup;e.required=!pickup&&key!=='address_detail';if(pickup)e.setCustomValidity('');}
+    card.querySelector('[data-gift-label="memo"]').firstChild.textContent=pickup?'수령 메모 ':'배송 메모 ';
+    field(card,'memo').placeholder=pickup?'예: 오후에 방문할게요':'예: 문 앞에 놓아 주세요';
+    if(pickup)card.querySelector('[data-gift-search-panel]').hidden=true;
+  }
   function totalWeight() {
     return read().reduce((sum, d) => sum + (products.find(p => p.id === d.product_id)?.weight_grams || 0) * d.quantity, 0);
   }
   function update() {
     const list = cards(), valid = ["윤가희","홍세환"].includes($("gift-sponsor").value) && list.length && read().every(d => products.some(p => p.id === d.product_id && p.available) && Number.isInteger(d.quantity) && d.quantity >= 1 && d.quantity <= 99);
     list.forEach((card, i) => {
+      deliveryMode(card);
       card.querySelector("[data-gift-number]").textContent = i + 1;
       card.querySelector("[data-gift-remove]").hidden = list.length === 1;
       card.querySelector("[data-gift-search]").setAttribute("aria-label", `받는 분 ${i + 1} 주소 검색`);
@@ -72,7 +83,7 @@
     try {
       const result = await api.rpc("farmer_catalog");
       if (current !== revision || !$("gift-dialog").open) return;
-      products = result.products.filter(p => p.fulfillment_method !== 'pickup' && p.id !== 'hopungmi-5kg-pickup');
+      products = result.products;
       busy = false;
       addCard();
       tell(products.some(p => p.available) ? "" : "현재 등록 가능한 재고가 없습니다.", !products.some(p => p.available));
@@ -114,11 +125,11 @@
     const current = revision;
     try {
       await postcodeSDK();
-      if (current !== revision || frozen() || !card.isConnected || panel.hidden) return;
+      if (current !== revision || frozen() || !card.isConnected || panel.hidden || isPickup(card)) return;
       const Postcode = window.kakao?.Postcode || window.daum.Postcode, container = card.querySelector("[data-gift-embed]");
       container.replaceChildren();
       new Postcode({width:"100%",height:"100%",onresize:size => { container.style.height = size.height + "px"; },oncomplete:data => {
-        if (current !== revision || frozen() || !card.isConnected) return;
+        if (current !== revision || frozen() || !card.isConnected || isPickup(card)) return;
         field(card,"postal_code").value = data.zonecode;
         field(card,"address").value = data.userSelectedType === "R" ? data.roadAddress : data.jibunAddress;
         field(card,"address_detail").value = "";
@@ -139,7 +150,7 @@
         const phone = field(card,"recipient_phone"), name = field(card,"recipient_name"), address = field(card,"address");
         phone.setCustomValidity(/^0\d{8,10}$/.test(phone.value.replace(/\D/g,"")) ? "" : "연락처를 확인해 주세요.");
         name.setCustomValidity(name.value.trim() ? "" : "받는 분 성함을 입력해 주세요.");
-        address.setCustomValidity(address.value.trim().length >= 5 ? "" : "주소를 확인해 주세요.");
+        address.setCustomValidity(isPickup(card) || address.value.trim().length >= 5 ? "" : "주소를 확인해 주세요.");
       }
       if (!$("gift-form").reportValidity() || !cards().length) return;
       const deliveries = read();
@@ -176,6 +187,7 @@
     else if (e.target.closest("[data-gift-search]")) search(card);
     else if (e.target.closest("[data-gift-close-search]")) { card.querySelector("[data-gift-search-panel]").hidden = true; card.querySelector("[data-gift-search]").focus(); }
   });
+  $("gift-deliveries").addEventListener("change",e=>{if(!frozen()&&e.target.matches('[data-gift-field="product_id"]'))update();});
   $("gift-sponsor").addEventListener("change",()=>{if(!frozen()){tell("");update();}});
   $("gift-add").addEventListener("click", () => addCard(true));
   $("gift-close").addEventListener("click", () => { if (!pending) clear(); });
