@@ -639,6 +639,7 @@
                 <option value="shipped">배송 중</option>
                 <option value="delivered">배송 완료</option>
                 <option value="cancelled">취소</option>
+                <option value="deleted">삭제된 주문</option>
               </select>
             </div>
             <div class="search">
@@ -652,6 +653,7 @@
             </div>
             <button class="button" type="submit">검색</button>
           </form>
+          <div class="actions" style="justify-content:flex-end;margin-bottom:16px"><button type="button" class="button secondary" id="export-orders">엑셀 다운로드</button></div>
           <div class="bulk-toolbar" aria-label="선택 주문 일괄 처리">
             <strong id="selection-count" aria-live="polite">선택한 주문 0건 · 0kg</strong>
             <button type="button" class="button secondary" id="clear-selection" disabled>선택 해제</button>
@@ -663,8 +665,10 @@
               <option value="delivered">배송 완료</option>
             </select>
             <button type="button" class="button" id="bulk-submit" disabled>선택 주문 상태 변경</button>
+            <button type="button" class="button danger" id="archive-selected" disabled>선택 주문 삭제</button>
           </div>
           <p class="message" id="bulk-message" role="status"></p>
+          <p class="message" id="order-tools-message" role="status"></p>
           <div class="bulk-shipping" id="bulk-shipping" hidden>
             <div class="field">
               <label for="bulk-carrier">선택 주문의 택배사 / 배송 방법</label>
@@ -679,7 +683,7 @@
               </caption>
               <thead>
                 <tr>
-                  <th class="select-cell"><input type="checkbox" id="select-all" aria-label="현재 페이지의 변경 가능한 주문 전체 선택" /></th>
+                  <th class="select-cell"><input type="checkbox" id="select-all" aria-label="현재 페이지의 주문 전체 선택" /></th>
                   <th>주문번호 · 접수일</th>
                   <th>주문자</th>
                   <th>상품 · 중량</th>
@@ -883,6 +887,7 @@
       </div>
       <p id="order-change-help" class="change-summary"></p>
       <div class="actions" id="order-actions"></div>
+      <p id="archive-order-note" class="notice"></p><button id="archive-order" type="button" class="button danger">주문 삭제</button>
       </div>
       <p class="message" id="order-message" role="status"></p>
     </dialog>
@@ -944,6 +949,8 @@
     <script src="simulation-math.js?v=20261019-giftplan1"></script>
     <script src="admin-simulator.js?v=20261019-giftplan1"></script>
     <script src="admin-delivery.js?v=20261019-1"></script>
-    <script src="admin.js?v=20261019-deliveryedit1"></script>
+    <script src="admin-xlsx.js?v=20261020-1"></script>
+    <script src="admin-order-tools.js?v=20261020-1"></script>
+    <script src="admin.js?v=20261020-ordertool1"></script>
   </body>
 </html>

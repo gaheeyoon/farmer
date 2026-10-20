@@ -31,10 +31,10 @@
     loading = false;
   const requests = new Map();
   const selected = new Set();
-  const canSelect = o => o && nextStage[o.status] && !(o.awaiting_address && o.status === "confirmed");
+  const canSelect = o => !!o;
   const nextStage = { pending: "confirmed", confirmed: "shipped", shipped: "delivered" };
   let bulkPending = null, bulkBusy = false;
-  const locked = () => loading || bulkBusy || !!bulkPending || window.FarmerDelivery.locked();
+  const locked = () => loading || bulkBusy || !!bulkPending || window.FarmerDelivery.locked() || window.FarmerOrderTools.locked();
   const selectedOrders = () => state.orders.filter(o => selected.has(o.id));
   const requestId = (payload) => {
     const key = JSON.stringify(payload);
@@ -58,6 +58,7 @@
   };
   function clearPrivateView() {
     version++;
+    window.FarmerOrderTools.clear();
     window.FarmerDelivery.clear();
     window.FarmerGifts.clear();
     window.FarmerGiftLinks.clear();
@@ -98,14 +99,14 @@
   }
   function renderSelection() {
     const orders = selectedOrders();
-    const same = orders.length > 0 && orders.every(o => o.status === orders[0].status);
+    const same = orders.length > 0 && orders.every(o => !o.deleted_at && !(o.awaiting_address && o.status === "confirmed") && o.status === orders[0].status);
     const target = same ? nextStage[orders[0].status] : null;
     $("selection-count").textContent = `선택한 주문 ${orders.length}건 · ${number(orders.reduce((sum, o) => sum + Number(o.weight_grams || 0), 0) / 1000)}kg`;
     for (const option of $('bulk-status').options) {option.disabled=option.value!==target;if(option.value)option.textContent=stageLabel(option.value,orders);}
     $("bulk-status").value = target || "";
     $("bulk-status").disabled = locked() || !target;
     $("clear-selection").disabled = locked() || !orders.length;
-    $("bulk-submit").disabled = loading || bulkBusy || (!bulkPending && !target);
+    $("bulk-submit").disabled = loading || bulkBusy || window.FarmerOrderTools.locked() || window.FarmerDelivery.locked() || (!bulkPending && !target);
     $("bulk-submit").textContent = bulkBusy ? "변경 중…" : bulkPending ? "처리 결과 다시 확인" : "선택 주문 상태 변경";
     $("bulk-shipping").hidden = target !== "shipped" || orders.every(isPickup);
     const oldValues = new Map([...$("shipment-inputs").querySelectorAll("input")].map(i => [i.dataset.orderId, i.value]));
@@ -123,7 +124,7 @@
       row.append(label, input);
       $("shipment-inputs").append(row);
     }
-    if (orders.length && !same && !bulkPending) message("bulk-message", "같은 단계의 주문을 선택해 주세요. 위의 단계별 건수를 누르면 해당 주문만 볼 수 있습니다.");
+    if (orders.length && !same && !orders.every(o=>o.deleted_at) && !bulkPending) message("bulk-message", "같은 단계의 주문을 선택해 주세요. 위의 단계별 건수를 누르면 해당 주문만 볼 수 있습니다.");
     updateControls();
   }
   function updateControls() {
@@ -143,9 +144,12 @@
     });
     $("bulk-carrier").disabled = busy;
     $("shipment-inputs").querySelectorAll("input").forEach(input => input.disabled = busy);
+    $("order-actions").querySelectorAll("button").forEach(b=>b.disabled=busy);
+    $("edit-delivery-open").disabled=busy || !!(state.current && (state.current.deleted_at || state.current.awaiting_address && state.current.status!=="confirmed"));
+    window.FarmerOrderTools.sync();
   }
   async function changeSelectedOrders() {
-    if (loading || bulkBusy) return;
+    if (loading || bulkBusy || window.FarmerOrderTools.locked() || window.FarmerDelivery.locked()) return;
     if (!bulkPending) {
       const orders = selectedOrders(), status = $("bulk-status").value;
       if (!orders.length || !orders.every(o => nextStage[o.status] === status)) return;
@@ -228,7 +232,7 @@
       const item = cell(row, o.product_name + " × " + o.quantity);
       item.append(node("small", "총 " + number(o.weight_grams / 1000) + " kg"));
       cell(row, o.order_kind === "gift" ? "0원 · 무상" : number(o.total) + "원");
-      cell(row).append(node("span", statusText(o), "badge " + o.status));
+      cell(row).append(node("span", o.deleted_at ? "삭제됨 · 취소" : statusText(o), "badge " + o.status));
       cell(row, date(o.delivered_at));
       $("orders-body").append(row);
     }
@@ -356,11 +360,13 @@
     if (locked()) return;
     state.current = o;
     window.FarmerDelivery.setOrder(o);
+    window.FarmerOrderTools.setOrder(o);
+    if(o.deleted_at){$("edit-delivery-open").hidden=true;$("delivery-edit-availability").textContent="삭제된 주문은 복원 후 배송 정보를 수정할 수 있습니다.";}
     $("order-heading").textContent = o.order_number;
     $("order-details").replaceChildren();
     const details = [
       ["주문 구분", o.order_kind === "gift" ? "선물 · 무상 발송" : "일반 주문"],
-      ["상태", statusText(o)],
+      ["상태", o.deleted_at ? "삭제됨 · 취소" : statusText(o)],
       ["주문자", o.customer_name],
       ["받는 분", o.recipient_name || o.customer_name],
       ["받는 분 연락처", o.awaiting_address ? "배송지 등록 대기" : o.recipient_phone || o.phone],
@@ -552,7 +558,7 @@
   document
     .querySelectorAll("[data-close]")
     .forEach((b) =>
-      b.addEventListener("click", () => {if (b.dataset.close === "order-dialog" && !window.FarmerDelivery.canClose()) return;$(b.dataset.close).close();}),
+      b.addEventListener("click", () => {if (b.dataset.close === "order-dialog" && (window.FarmerOrderTools.locked() || !window.FarmerDelivery.canClose())) return;$(b.dataset.close).close();}),
     );
   $("open-stock").addEventListener("click", () => {
     if (!state.summary) return;
@@ -592,6 +598,11 @@
     $("order-dialog").close();
     try {await load();if (currentVersion === version) message("dashboard-message", "배송 정보를 수정했습니다.");}
     catch {if (currentVersion === version) message("dashboard-message", "배송 정보는 저장했습니다. 목록을 새로고침해 주세요.");}
+  });
+  window.FarmerOrderTools.init({
+    state:()=>({selected:selectedOrders(),canStart:!locked(),filters:{p_status:$("status-filter").value,p_search:$("search").value.trim(),p_kind:$("kind-filter").value}}),
+    changed:()=>renderSelection(),
+    saved:async text=>{const ticket=version;$("order-dialog").close();try{await load();if(ticket===version)message("order-tools-message",text);}catch{if(ticket===version)message("order-tools-message",text+" 목록을 새로고침해 주세요.");}}
   });
   window.FarmerFinance.init(() => !locked());
   window.FarmerDiscounts.init();
