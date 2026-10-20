@@ -23,3 +23,12 @@ const giftRows=comparison({...base,giftQty5:10});assert.equal(giftRows[3].profit
 for(const value of [-1,1.5,NaN,Infinity,1000001,null])assert.throws(()=>calculate({...base,giftQty5:value}));
 assert.equal(calculate({...base,giftQty5:0}).profit,calculate(base).profit);
 console.log('PASS: gifts fixed at zero revenue, paid-only price sensitivity and break-even denominator, combined stock and costs, all-gift cases and gift quantity validation.');
+
+// Pickup gifts consume a box and 5kg of stock, but no postage.
+r=calculate({...base,qty5:0,giftPickupQty5:10});assert.equal(r.shippingCost,0);assert.equal(r.packingCost,10000);assert.equal(r.giftBoxes,10);assert.equal(r.giftShippingBoxes,0);assert.equal(r.giftPickupBoxes,10);assert.equal(r.kg,50);assert.equal(r.revenue,0);assert.equal(r.profit,-3027620);
+r=calculate({...base,qty5:0,giftQty5:2,giftPickupQty5:3});assert.equal(r.shippingCost,7000);assert.equal(r.packingCost,5000);assert.equal(r.boxes,5);assert.equal(r.kg,25);assert.equal(r.remainingKg,2975);
+r=calculate({...base,qty5:2,giftQty5:2,giftPickupQty5:3});assert.equal(r.shippingCost,14000);assert.equal(r.packingCost,7000);assert.equal(r.kg,35);assert.equal(r.revenue,44000);
+const pickupRows=comparison({...base,giftQty5:2,giftPickupQty5:3});assert.equal(pickupRows[3].profit-pickupRows[2].profit,600000);assert.ok(pickupRows.every(v=>v.giftPickupBoxes===3&&v.shippingCost===2107000&&v.packingCost===605000));
+for(const value of [-1,1.5,NaN,Infinity,1000001,null])assert.throws(()=>calculate({...base,giftPickupQty5:value}));
+assert.equal(calculate({...base,giftPickupQty5:0}).profit,calculate(base).profit);
+console.log('PASS: pickup gifts charge packing only; mixed paid/shipping/pickup gifts, inventory, break-even, comparisons and validation.');

@@ -5,13 +5,13 @@
  function calculate(p){
   const expense=integer(p.expense,'장부 지출',Number.MAX_SAFE_INTEGER),income=integer(p.income,'기존 수입',Number.MAX_SAFE_INTEGER);
   const price2=integer(p.price2,'2kg 판매가'),price5=integer(p.price5,'5kg 판매가'),qty2=integer(p.qty2,'2kg 수량',1000000),qty5=integer(p.qty5,'5kg 수량',1000000);
-  const giftBoxes=integer(p.giftQty5===undefined?0:p.giftQty5,'선물 5kg 수량',1000000);
+  const giftShippingBoxes=integer(p.giftQty5===undefined?0:p.giftQty5,'택배 선물 5kg 수량',1000000),giftPickupBoxes=integer(p.giftPickupQty5===undefined?0:p.giftPickupQty5,'방문 수령 선물 5kg 수량',1000000),giftBoxes=giftShippingBoxes+giftPickupBoxes;
   const shipping=integer(p.shipping,'배송비'),packing=integer(p.packing,'상자비');
   if(!Number.isFinite(p.availableKg)||p.availableKg<0)throw new Error('현재 재고를 확인해 주세요.');
-  const paidBoxes=qty2+qty5,boxes=paidBoxes+giftBoxes,kg=qty2*2+(qty5+giftBoxes)*5,revenue=price2*qty2+price5*qty5,shippingCost=shipping*boxes,packingCost=packing*boxes;
+  const paidBoxes=qty2+qty5,boxes=paidBoxes+giftBoxes,kg=qty2*2+(qty5+giftBoxes)*5,revenue=price2*qty2+price5*qty5,shippingCost=shipping*(paidBoxes+giftShippingBoxes),packingCost=packing*boxes;
   const totalIncome=income+revenue,totalCost=expense+shippingCost+packingCost,profit=totalIncome-totalCost;
   if(![revenue,totalIncome,totalCost,profit].every(Number.isSafeInteger))throw new Error('계산 가능한 금액 범위를 초과했습니다.');
-  return {boxes,paidBoxes,giftBoxes,kg,revenue,shippingCost,packingCost,totalIncome,totalCost,profit,baseProfit:income-expense,
+  return {boxes,paidBoxes,giftBoxes,giftShippingBoxes,giftPickupBoxes,kg,revenue,shippingCost,packingCost,totalIncome,totalCost,profit,baseProfit:income-expense,
    contribution:revenue-shippingCost-packingCost,averagePrice:paidBoxes?revenue/paidBoxes:null,
    breakEvenAverage:paidBoxes?Math.max(0,Math.ceil((expense-income+shippingCost+packingCost)/paidBoxes)):null,
    overStock:kg*1000>Math.round(p.availableKg*1000),remainingKg:p.availableKg-kg};
