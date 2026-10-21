@@ -1,8 +1,8 @@
 /* Admin-only shipping edits. Drafts and recipient details stay in memory. */
 (() => {
  'use strict';
- const $=id=>document.getElementById(id),api=window.FarmerAPI,C=window.GiftCommon;
- const keys=['recipient_name','recipient_phone','postal_code','address','address_detail','memo','carrier','tracking_number'];
+ const $=id=>document.getElementById(id),api=window.FarmerAPI,C=window.GiftCommon,P=window.FarmerParcels;
+ const keys=['recipient_name','recipient_phone','postal_code','address','address_detail','memo','carrier'];
  const input=k=>$('edit-delivery-'+k),form=$('delivery-edit-form');
  let order=null,editing=false,dirty=false,busy=false,pending=null,epoch=0,onSaved=async()=>{};
  const pickup=o=>o?.product_id==='hopungmi-5kg-pickup'||o?.fulfillment_method==='pickup';
@@ -15,12 +15,13 @@
   $('edit-delivery-save').disabled=busy;$('edit-delivery-save').textContent=busy?'저장 중…':pending?'저장 결과 다시 확인':'배송 정보 저장';
   document.querySelectorAll('[data-close="order-dialog"]').forEach(b=>b.disabled=frozen());
  }
- function clear(){epoch++;order=null;editing=false;dirty=false;busy=false;pending=null;form.reset();form.querySelectorAll('input,textarea').forEach(e=>e.setCustomValidity(''));$('edit-delivery-search').disabled=false;$('delivery-edit-search-embed').replaceChildren();$('delivery-edit-search-panel').hidden=true;tell('');$('delivery-edit-availability').textContent='';sync();}
+ function clear(){epoch++;order=null;editing=false;dirty=false;busy=false;pending=null;form.reset();$('edit-delivery-tracking_number').replaceChildren();form.querySelectorAll('input,textarea').forEach(e=>e.setCustomValidity(''));$('edit-delivery-search').disabled=false;$('delivery-edit-search-embed').replaceChildren();$('delivery-edit-search-panel').hidden=true;tell('');$('delivery-edit-availability').textContent='';sync();}
  function setOrder(o){clear();order=o;$('delivery-edit-availability').textContent=o.awaiting_address&&o.status!=='confirmed'?'배송지가 등록되지 않은 선물은 입금 확인 후 수정할 수 있습니다.':'';sync();}
  function start(){
   if(!order||frozen()||order.awaiting_address&&order.status!=='confirmed')return;
   editing=true;dirty=false;for(const k of keys)input(k).value=String(order[k]||'');
   input('recipient_name').value=order.recipient_name||order.customer_name||'';input('recipient_phone').value=C.formatPhone(order.recipient_phone||order.phone||'');
+  P.mount($('edit-delivery-tracking_number'),order,'edit-parcel');
   const isPickup=pickup(order);$('delivery-edit-address-fields').hidden=isPickup;$('delivery-edit-tracking-fields').hidden=isPickup;
   for(const k of ['postal_code','address'])input(k).required=!isPickup;
   input('carrier').required=!isPickup&&['shipped','delivered'].includes(order.status);
@@ -35,7 +36,8 @@
    C.phoneValid(input('recipient_phone'));input('recipient_name').setCustomValidity(input('recipient_name').value.trim()?'':'받는 분 성함을 입력해 주세요.');
    input('address').setCustomValidity(pickup(order)||input('address').value.trim().length>=5?'':'배송 주소를 확인해 주세요.');
    if(!form.reportValidity())return;
-   const delivery=Object.fromEntries(keys.map(k=>[k,input(k).value.trim()]));delivery.recipient_phone=delivery.recipient_phone.replace(/\D/g,'');
+   let tracking;try{tracking=pickup(order)?'':P.encoded($('edit-delivery-tracking_number'));}catch(error){tell(error.message,true);return;}
+   const delivery=Object.fromEntries(keys.map(k=>[k,input(k).value.trim()]));delivery.tracking_number=tracking;delivery.recipient_phone=delivery.recipient_phone.replace(/\D/g,'');
    pending={p_order_id:order.id,p_expected_version:order.version,p_request_id:api.uuid(),p_delivery:delivery};
   }
   const ticket=epoch;busy=true;sync();tell('배송 정보를 저장하고 있습니다.');

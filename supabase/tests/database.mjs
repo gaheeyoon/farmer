@@ -19,11 +19,13 @@ for(const name of (await readdir(migrations)).filter(name=>name.endsWith('.sql')
   previousPriceReceipt=(await db.query('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result',previousPriceArgs)).rows[0].result;
   previousPriceSnapshot=(await db.query('select to_jsonb(o) as snapshot from public.farmer_orders o where request_id=$1',[previousPriceArgs[0]])).rows[0].snapshot;
  }
+ if(name.includes('parcel_tracking_numbers'))await db.query('update public.farmer_orders set tracking_number=$1 where request_id=$2',['LEGACY-BOX-001',legacyArgs[0]]);
  await db.exec(await readFile(new URL(name,migrations),'utf8'));
 }
+assert.deepEqual((await db.query('select tracking_numbers from public.farmer_orders where request_id=$1',[legacyArgs[0]])).rows[0].tracking_numbers,['LEGACY-BOX-001']);
 assert.equal(previousPriceReceipt.total,21500);
 assert.deepEqual((await db.query('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result',previousPriceArgs)).rows[0].result,previousPriceReceipt);
-assert.deepEqual((await db.query('select to_jsonb(o) as snapshot from public.farmer_orders o where request_id=$1',[previousPriceArgs[0]])).rows[0].snapshot,{...previousPriceSnapshot,deleted_at:null,gift_sponsor:null});
+assert.deepEqual((await db.query('select to_jsonb(o) as snapshot from public.farmer_orders o where request_id=$1',[previousPriceArgs[0]])).rows[0].snapshot,{...previousPriceSnapshot,deleted_at:null,gift_sponsor:null,tracking_numbers:[]});
 assert.equal(legacyReceipt.total,11500);
 assert.deepEqual((await db.query('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result',legacyArgs)).rows[0].result,legacyReceipt);
 assert.equal((await db.query('select total from public.farmer_orders where request_id=$1',[legacyArgs[0]])).rows[0].total,11500);
@@ -271,6 +273,8 @@ const {verifyGiftPickup}=await import('./gift-pickup.mjs');
 await verifyGiftPickup({db,rpc,admin,anon,expectError});
 const {verifyFulfillmentCosts}=await import('./fulfillment-costs.mjs');
 await verifyFulfillmentCosts({db,rpc,admin,anon,expectError});
+const {verifyParcels}=await import('./parcels.mjs');
+await verifyParcels({db,rpc,admin,anon,expectError});
 
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');

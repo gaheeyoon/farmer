@@ -13,8 +13,8 @@ export async function verifyDeliveryEdit({db,rpc,admin,anon,expectError}) {
  for(const [patch,error] of [[{recipient_phone:'bad'},'받는 분'],[{postal_code:'abc'},'우편번호'],[{total:'0'},'수정할 수 없는'],[{address:'짧음'},'우편번호'],[{memo:'x'.repeat(301)},'배송 정보']])await expectError(()=>edit(order,id(30),{...delivery,...patch}),error);
  const saved=await edit(order);assert.equal(saved.saved,true);assert.equal(saved.version,2);assert.deepEqual(await edit(order),saved);
  await expectError(()=>edit(order,id(2),{...delivery,memo:'바꿈'}),'이미 사용');await expectError(()=>edit(order,id(3)),'다른 화면');
- const after=await snapshot();assert.equal(after.recipient_phone,'01098765432');assert.equal(after.memo,delivery.memo);assert.equal(after.postal_code,'04524');
- for(const key of Object.keys(before).filter(k=>!Object.keys(delivery).includes(k)&&!['version','updated_at'].includes(k)))assert.deepEqual(after[key],before[key],key+' unexpectedly changed');
+ const after=await snapshot();assert.equal(after.recipient_phone,'01098765432');assert.equal(after.memo,delivery.memo);assert.equal(after.postal_code,'04524');assert.deepEqual(after.tracking_numbers,['TRACK-EDIT']);
+ for(const key of Object.keys(before).filter(k=>!Object.keys(delivery).includes(k)&&!['version','updated_at','tracking_numbers'].includes(k)))assert.deepEqual(after[key],before[key],key+' unexpectedly changed');
  await admin();assert.equal(await stock(),beforeStock);order=(await list()).orders[0];
  await edit(order,id(4),{...delivery,memo:'두 번째 수정'});assert.deepEqual(await edit({...order,version:1},id(2)),saved);let latest=(await list()).orders[0];assert.equal(latest.memo,'두 번째 수정');assert.equal(latest.version,3);
  const status=(o,state,n)=>rpc('select public.farmer_admin_change_status($1,$2,$3,$4,$5,$6) as result',[o.id,state,o.version,id(n),'우체국택배','TRACK']);

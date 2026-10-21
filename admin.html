@@ -537,7 +537,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="admin-finance.css?v=20261021-costs1" />
+    <link rel="stylesheet" href="admin-finance.css?v=20261021-parcels1" />
     <link rel="stylesheet" href="admin-discounts.css?v=20261018-codes1" />
     <link rel="stylesheet" href="admin-simulator.css?v=20261019-giftplan1" />
   <link rel="stylesheet" href="site-navigation.css?v=20261019-larger-menu"><link rel="stylesheet" href="site-footer.css?v=20261019-1"><style>#gift-links-dialog{width:min(850px,calc(100% - 32px))}#gl-fields{border:0;margin:0;padding:0;min-width:0}#gl-fields textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:5px;font:inherit;resize:vertical}.gl-card{padding:20px 0;border-bottom:1px solid var(--line)}.gl-card-top{display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}.gl-card p{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px}.gl-note{color:var(--muted);font-size:12px!important}.gl-card input{width:100%;margin:12px 0;font-size:12px}.gl-card .button{font-size:12px;padding:8px 12px}.gl-card .actions{margin-top:12px}</style><link rel="stylesheet" href="bank-transfer.css?v=20261019-3"></head>
@@ -876,7 +876,7 @@
             <div class="field"><label for="edit-delivery-address_detail">상세 주소</label><input id="edit-delivery-address_detail" maxlength="120" autocomplete="off"></div>
           </div>
           <div class="field"><label for="edit-delivery-memo" id="delivery-edit-memo-label">배송 메모</label><textarea id="edit-delivery-memo" maxlength="300" rows="2"></textarea></div>
-          <div id="delivery-edit-tracking-fields" class="row"><div class="field"><label for="edit-delivery-carrier">택배사 / 배송 방법</label><input id="edit-delivery-carrier" maxlength="60" placeholder="예: 우체국택배"></div><div class="field"><label for="edit-delivery-tracking_number">송장번호</label><input id="edit-delivery-tracking_number" maxlength="100"></div></div>
+          <div id="delivery-edit-tracking-fields" class="row"><div class="field"><label for="edit-delivery-carrier">택배사 / 배송 방법</label><input id="edit-delivery-carrier" maxlength="60" placeholder="예: 우체국택배"></div><div class="field"><p>상자별 송장번호 · 선택</p><div id="edit-delivery-tracking_number"></div></div></div>
         </fieldset>
         <p id="delivery-edit-status" class="message" role="status"></p>
         <div class="actions"><button id="edit-delivery-cancel" type="button" class="button secondary">수정 취소</button><button id="edit-delivery-save" type="submit" class="button">배송 정보 저장</button></div>
@@ -892,8 +892,7 @@
           />
         </div>
         <div class="field">
-          <label for="tracking">송장번호 <small>선택</small></label
-          ><input id="tracking" maxlength="100" />
+          <p>상자별 송장번호 <small>선택</small></p><div id="tracking"></div>
         </div>
       </div>
       <p id="order-change-help" class="change-summary"></p>
@@ -960,9 +959,10 @@
     <script src="admin-discounts.js?v=20261018-codes1"></script>
     <script src="simulation-math.js?v=20261020-pickupcost1"></script>
     <script src="admin-simulator.js?v=20261021-costs1"></script>
-    <script src="admin-delivery.js?v=20261019-1"></script>
+    <script src="admin-parcels.js?v=20261021-parcels1"></script>
+    <script src="admin-delivery.js?v=20261021-parcels1"></script>
     <script src="admin-xlsx.js?v=20261020-1"></script>
-    <script src="admin-order-tools.js?v=20261020-sponsor1"></script>
-    <script src="admin.js?v=20261020-giftpickup1"></script>
+    <script src="admin-order-tools.js?v=20261021-parcels1"></script>
+    <script src="admin.js?v=20261021-parcels1"></script>
   </body>
 </html>

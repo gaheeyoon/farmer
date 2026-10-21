@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+await import('../admin-parcels.js');
+const {values,exportRows}=globalThis.FarmerParcels;
+const order={id:'example',order_number:'GF-00000001',quantity:4,weight_grams:20000,unit_price:22000,subtotal:88000,discount_amount:2001,shipping_fee:3501,total:89500,tracking_number:'001234',tracking_numbers:['001234','','003456','004567'],product_id:'hopungmi-5kg',phone:'01012345678',postal_code:'04524'};
+let rows=exportRows([order]);assert.equal(rows.length,4);assert.ok(rows.every(r=>r.quantity===1&&r.weight_grams===5000));assert.deepEqual(rows.map(r=>r.tracking_number),['001234','','003456','004567']);assert.deepEqual(rows.map(r=>r.parcel_label),['1 / 4','2 / 4','3 / 4','4 / 4']);
+for(const key of ['subtotal','discount_amount','shipping_fee','total','weight_grams'])assert.equal(rows.reduce((sum,r)=>sum+r[key],0),order[key]);
+assert.ok(rows.every(r=>r.total===r.subtotal-r.discount_amount+r.shipping_fee));assert.ok(rows.every(r=>r.postal_code==='04524'&&r.phone==='01012345678'));
+assert.deepEqual(values({...order,tracking_numbers:undefined}),['001234','','',''],'legacy number belongs to first box only');
+assert.deepEqual(values({...order,tracking_numbers:['','SECOND','','']}),['','SECOND','',''],'empty slots preserve indexes');
+rows=exportRows([{...order,product_id:'hopungmi-5kg-pickup'}]);assert.ok(rows.every(r=>r.tracking_number===''));
+rows=exportRows([{...order,subtotal:0,discount_amount:0,shipping_fee:0,total:0,order_kind:'gift'}]);assert.ok(rows.every(r=>r.total===0));
+for(const quantity of [0,100,1.5])assert.throws(()=>exportRows([{...order,quantity}]));
+assert.throws(()=>exportRows([order],3));assert.throws(()=>exportRows([{...order,total:1}]));
+assert.equal(exportRows([{...order,quantity:1,tracking_numbers:['ONLY']}]).length,1);
+console.log('PASS: one row per box, indexed/legacy tracking, exact financial and weight sums, leading zeroes, gifts/pickup and export limits.');

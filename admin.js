@@ -1,7 +1,7 @@
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id),
-    api = window.FarmerAPI;
+    api = window.FarmerAPI, parcels=window.FarmerParcels;
   const statuses = {
     pending: "입금 대기",
     confirmed: "입금 확인(배송 준비)",
@@ -110,19 +110,13 @@
     $("bulk-submit").disabled = loading || bulkBusy || window.FarmerOrderTools.locked() || window.FarmerDelivery.locked() || (!bulkPending && !target);
     $("bulk-submit").textContent = bulkBusy ? "변경 중…" : bulkPending ? "처리 결과 다시 확인" : "선택 주문 상태 변경";
     $("bulk-shipping").hidden = target !== "shipped" || orders.every(isPickup);
-    const oldValues = new Map([...$("shipment-inputs").querySelectorAll("input")].map(i => [i.dataset.orderId, i.value]));
+    const oldValues = new Map([...$("shipment-inputs").querySelectorAll("input")].map(i => [i.dataset.parcelKey, i.value]));
     $("shipment-inputs").replaceChildren();
     if (target === "shipped") for (const o of orders.filter(o => !isPickup(o))) {
       const row = node("div", undefined, "shipment-row"), label = node("label", o.order_number + " · " + (o.recipient_name || o.customer_name));
-      const input = node("input");
-      input.id = "shipment-" + o.id;
-      input.dataset.orderId = o.id;
-      input.maxLength = 100;
-      input.value = oldValues.get(o.id) ?? o.tracking_number ?? "";
-      input.placeholder = "송장번호";
-      label.htmlFor = input.id;
-      label.append(node("small", "송장번호 · 선택"));
-      row.append(label, input);
+      const fields=node('div');fields.id='shipment-'+o.id;
+      label.append(node('small',o.quantity+'상자 · 상자별 송장번호 · 선택'));
+      parcels.mount(fields,o,'shipment-'+o.id,oldValues);row.append(label,fields);
       $("shipment-inputs").append(row);
     }
     if (orders.length && !same && !orders.every(o=>o.deleted_at) && !bulkPending) message("bulk-message", "같은 단계의 주문을 선택해 주세요. 위의 단계별 건수를 누르면 해당 주문만 볼 수 있습니다.");
@@ -160,6 +154,8 @@
         $("bulk-carrier").focus();
         return;
       }
+      let shipmentNumbers=new Map();
+      if(status==='shipped')try{for(const o of orders.filter(o=>!isPickup(o)))shipmentNumbers.set(o.id,parcels.encoded($('shipment-'+o.id)));}catch(error){message('bulk-message',error.message,true);return;}
       const allPickup = orders.every(isPickup);
       const extra = status === "confirmed"
         ? `입금을 확인하셨나요? 재고 ${number(orders.reduce((sum, o) => sum + o.weight_grams, 0) / 1000)}kg이 차감됩니다.`
@@ -168,7 +164,7 @@
       bulkPending = { p_status: status, p_orders: orders.map(o => ({
         order_id: o.id, expected_version: o.version, request_id: api.uuid(),
         carrier: status === "shipped" ? (isPickup(o) ? "방문 수령" : carrier) : "",
-        tracking_number: status === "shipped" && !isPickup(o) ? $("shipment-" + o.id).value.trim() : "",
+        tracking_number: status === "shipped" && !isPickup(o) ? shipmentNumbers.get(o.id) : "",
       })) };
     }
     const currentVersion = version, payload = bulkPending, completionLabel=stageLabel(bulkPending.p_status,selectedOrders());
@@ -399,13 +395,13 @@
       [isPickup(o) ? "수령 대기" : "발송", date(o.shipped_at)],
       [isPickup(o) ? "수령 완료" : "배송 완료", date(o.delivered_at)],
       ["배송 방법", o.carrier || "—"],
-      ["송장", o.tracking_number || "—"],
+      ["상자별 송장", parcels.describe(o)],
     ];
     for (const [key, value] of details)
       $("order-details").append(node("dt", key), node("dd", value));
     $("shipping-fields").hidden = o.status !== "confirmed" || isPickup(o) || o.awaiting_address;
     $("carrier").value = isPickup(o) ? "방문 수령" : o.carrier;
-    $("tracking").value = o.tracking_number;
+    parcels.mount($('tracking'),o,'tracking');
     $("order-actions").replaceChildren();
     const choices =
       {
@@ -448,6 +444,8 @@
       $("carrier").focus();
       return;
     }
+    let parcelPayload='';
+    if(status==='shipped'&&!isPickup(o))try{parcelPayload=parcels.encoded($('tracking'));}catch(error){message('order-message',error.message,true);return;}
     const prompt =
       status === "confirmed"
         ? `입금을 확인하셨나요? ${o.order_number}를 확정하고 재고 ${number(o.weight_grams / 1000)}kg을 차감할까요?`
@@ -462,7 +460,7 @@
       p_status: status,
       p_expected_version: o.version,
       p_carrier: isPickup(o) ? "방문 수령" : $("carrier").value.trim(),
-      p_tracking_number: isPickup(o) ? "" : $("tracking").value.trim(),
+      p_tracking_number: parcelPayload,
     };
     payload.p_request_id = requestId(payload);
     $("order-actions")
