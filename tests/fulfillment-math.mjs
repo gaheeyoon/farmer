@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+await import('../fulfillment-math.js');
+const {calculate}=globalThis.FarmerFulfillmentMath;
+const data={settings:{shipping:4000,packing:1500},shipping_boxes:86,pickup_boxes:0,recorded_shipping:0,recorded_packing:0};
+let r=calculate(data);assert.equal(r.extraShipping,344000);assert.equal(r.extraPacking,129000);assert.equal(r.extra,473000);
+r=calculate({...data,pickup_boxes:4});assert.equal(r.extraShipping,344000);assert.equal(r.extraPacking,135000);assert.equal(r.boxes,90);
+r=calculate({...data,recorded_shipping:10000,recorded_packing:20000});assert.equal(r.extra,443000);
+r=calculate({...data,recorded_shipping:400000,recorded_packing:200000});assert.equal(r.extra,0,'actual ledger expenses are not added twice or subtracted from unrelated farm costs');
+r=calculate(data,0,0);assert.equal(r.extra,0);
+r=calculate(data,5000,2000);assert.equal(r.extra,602000);
+for(const field of ['shipping_boxes','pickup_boxes','recorded_shipping','recorded_packing'])for(const value of [-1,NaN,1.5,Number.MAX_SAFE_INTEGER+1])assert.throws(()=>calculate({...data,[field]:value}));
+assert.throws(()=>calculate(data,-1));assert.throws(()=>calculate(data,100000001));
+assert.throws(()=>calculate({...data,shipping_boxes:Number.MAX_SAFE_INTEGER}));
+console.log('PASS: existing order costs, shipping/pickup split, partial and excess actual costs without duplication, zero/custom rates and unsafe input.');

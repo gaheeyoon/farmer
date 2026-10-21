@@ -1,6 +1,6 @@
 {
   "name": "farmer",
   "private": true,
-  "scripts": { "test": "node tests/xlsx-export.mjs && node tests/simulation-math.mjs && node tests/auth-session.mjs && node supabase/tests/database.mjs" },
+  "scripts": { "test": "node tests/xlsx-export.mjs && node tests/simulation-math.mjs && node tests/fulfillment-math.mjs && node tests/auth-session.mjs && node supabase/tests/database.mjs" },
   "devDependencies": { "@electric-sql/pglite": "0.5.10" }
 }

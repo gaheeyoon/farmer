@@ -269,6 +269,8 @@ const {verifyGiftSponsors}=await import('./gift-sponsors.mjs');
 await verifyGiftSponsors({db,rpc,admin,anon,expectError});
 const {verifyGiftPickup}=await import('./gift-pickup.mjs');
 await verifyGiftPickup({db,rpc,admin,anon,expectError});
+const {verifyFulfillmentCosts}=await import('./fulfillment-costs.mjs');
+await verifyFulfillmentCosts({db,rpc,admin,anon,expectError});
 
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
