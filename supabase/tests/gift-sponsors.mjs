@@ -29,4 +29,22 @@ export async function verifyGiftSponsors({db,rpc,admin,anon,expectError}){
  const moved=find(saved.orders[2].order_number);await db.query("update public.farmer_orders set created_at='2025-12-31 14:59:59+00' where id=$1",[moved.id]);await admin();assert.equal(person(await summary(2025),'윤가희').qty2,2);
  const exported=await rpc('select public.farmer_admin_export_orders($1,$2,$3) as result',['deleted','','']);assert.equal(exported.orders.find(o=>o.id===g.id).gift_sponsor,'윤가희');
  console.log('PASS: explicit gift sponsors, zero-unit coupon counts, paid customer gift exclusion, partial-cart free-unit allocation, exact retries, status/claim deduplication, cancellation/archive exclusion, private read-only totals and Korea year boundary.');
+ // Joint sponsorship is a separate bucket, with one inventory allocation per box.
+ await db.exec('reset role;begin;');await admin();
+ const jointBefore=await summary(2026),stockBefore=(await rpc('select public.farmer_admin_summary() as result')).available_kg;
+ const jointId=randomUUID(),jointItems=[data('윤가희&홍세환',2),data('윤가희&홍세환',3,'hopungmi-2kg'),data('윤가희&홍세환',1,'hopungmi-5kg-pickup')].map(d=>({...d,recipient_name:'공동선물검증'}));
+ const jointReceipt=await gift(jointItems,jointId);assert.deepEqual(await gift(jointItems,jointId),jointReceipt);
+ const jointAfter=await summary(2026),jointRow=person(jointAfter,'윤가희&홍세환'),priorJoint=person(jointBefore,'윤가희&홍세환');
+ assert.equal(jointRow.boxes-priorJoint.boxes,6);assert.equal(jointRow.kg-priorJoint.kg,21);
+ assert.equal(jointRow.qty5-priorJoint.qty5,3);assert.equal(jointRow.qty2-priorJoint.qty2,3);
+ assert.equal(jointRow.pickup_qty5-priorJoint.pickup_qty5,1);assert.equal(jointRow.shipping_qty5-priorJoint.shipping_qty5,2);
+ assert.deepEqual(person(jointAfter,'윤가희'),person(jointBefore,'윤가희'));assert.deepEqual(person(jointAfter,'홍세환'),person(jointBefore,'홍세환'));
+ assert.equal(jointAfter.totals.boxes-jointBefore.totals.boxes,6);
+ assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,stockBefore-21);
+ const jointOrders=(await rpc('select public.farmer_admin_export_orders($1,$2,$3) as result',['','공동선물검증','gift'])).orders;
+ assert.equal(jointOrders.length,3);assert.ok(jointOrders.every(o=>o.gift_sponsor==='윤가희&홍세환'&&o.total===0));
+ await change(jointOrders.find(o=>o.product_id==='hopungmi-5kg'),'cancelled');
+ assert.equal(person(await summary(2026),'윤가희&홍세환').boxes,jointRow.boxes-2);
+ await db.exec('rollback;');
+ console.log('PASS: joint gift sponsor storage/export, separate counts, shipping/pickup split, no double-counting or duplicate stock allocation, and cancellation.');
 }

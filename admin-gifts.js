@@ -29,7 +29,7 @@
     return read().reduce((sum, d) => sum + (products.find(p => p.id === d.product_id)?.weight_grams || 0) * d.quantity, 0);
   }
   function update() {
-    const list = cards(), valid = ["윤가희","홍세환"].includes($("gift-sponsor").value) && list.length && read().every(d => products.some(p => p.id === d.product_id && p.available) && Number.isInteger(d.quantity) && d.quantity >= 1 && d.quantity <= 99);
+    const list = cards(), valid = ["윤가희","홍세환","윤가희&홍세환"].includes($("gift-sponsor").value) && list.length && read().every(d => products.some(p => p.id === d.product_id && p.available) && Number.isInteger(d.quantity) && d.quantity >= 1 && d.quantity <= 99);
     list.forEach((card, i) => {
       deliveryMode(card);
       card.querySelector("[data-gift-number]").textContent = i + 1;
