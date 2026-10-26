@@ -7,6 +7,13 @@ await db.exec(`create role anon; create role authenticated; create schema auth;
   create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
   insert into auth.users values ('00000000-0000-0000-0000-000000000001','operator@example.test',now()),('00000000-0000-0000-0000-000000000002','visitor@example.test',now());`);
 const migrations=new URL('../migrations/',import.meta.url);
+// The local database emulates Storage metadata; binary API behavior is checked separately.
+await db.exec(`create schema storage;
+  create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+  create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb,unique(bucket_id,name));
+  alter table storage.objects enable row level security;
+  grant usage on schema storage to anon,authenticated;
+  grant select,insert on storage.objects to anon,authenticated;`);
 let legacyReceipt, previousPriceReceipt, previousPriceSnapshot;
 const previousPriceArgs=['90000000-0000-4000-8000-000000000002','hopungmi-5kg',1,'GOGUMA','가격 변경 전 주문','01022223333','서울 중구 세종대로 110','','',21500,true];
 const legacyArgs=['90000000-0000-4000-8000-000000000001','hopungmi-2kg',1,'GOGUMA','기존 주문','01011112222','서울 중구 세종대로 110','','',11500,true];
@@ -276,6 +283,31 @@ await verifyFulfillmentCosts({db,rpc,admin,anon,expectError});
 const {verifyParcels}=await import('./parcels.mjs');
 await verifyParcels({db,rpc,admin,anon,expectError});
 
+const {verifyReviews}=await import('./reviews.mjs');
+await verifyReviews({db,rpc,admin,anon,expectError});
+// Summary totals cover all orders, not just the current page or paid sales.
+await admin();
+const beforeBoxes=await rpc('select public.farmer_admin_summary() as result');
+await db.exec(`reset role;begin;
+ insert into public.farmer_orders(request_id,request_fingerprint,product_id,product_name,quantity,weight_grams,unit_price,subtotal,total,customer_name,phone,address,status,order_kind,deleted_at,created_by)
+ select gen_random_uuid(),'box-summary-test',p.id,p.name,t.qty,p.weight_grams*t.qty,
+  case when t.kind='gift' then 0 else p.price end,case when t.kind='gift' then 0 else p.price*t.qty end,case when t.kind='gift' then 0 else p.price*t.qty end,
+  '집계 검증','01000000000','검증 주소',t.status,t.kind,case when t.deleted then now() else null end,'00000000-0000-0000-0000-000000000001'::uuid
+ from (values
+  ('hopungmi-2kg',3,'confirmed','sale',false),('hopungmi-5kg',4,'confirmed','sale',false),
+  ('hopungmi-5kg',2,'confirmed','gift',false),('hopungmi-5kg-pickup',1,'confirmed','gift',false),
+  ('hopungmi-2kg',9,'cancelled','sale',false),('hopungmi-5kg',6,'shipped','sale',false),
+  ('hopungmi-2kg',7,'cancelled','sale',true)) t(sku,qty,status,kind,deleted)
+ join public.farmer_products p on p.id=t.sku;`);
+await admin();
+const afterBoxes=await rpc('select public.farmer_admin_summary() as result');
+assert.equal(afterBoxes.confirmed_2kg_boxes-beforeBoxes.confirmed_2kg_boxes,3);
+assert.equal(afterBoxes.confirmed_5kg_boxes-beforeBoxes.confirmed_5kg_boxes,7);
+assert.equal(afterBoxes.confirmed-beforeBoxes.confirmed,4);
+assert.equal(afterBoxes.confirmed_kg-beforeBoxes.confirmed_kg,41);
+assert.equal(afterBoxes.available_kg,beforeBoxes.available_kg);
+await db.exec('rollback;');
+console.log('PASS: confirmed box totals count quantities, gifts and pickup; exclude other statuses and deleted orders; preserve stock.');
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 await expectError(()=>bulk(confirmedPayload,'confirmed'),'관리자 권한');

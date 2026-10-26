@@ -66,6 +66,7 @@
     window.FarmerFinance.clear();
     window.FarmerDiscounts.clear();
     window.FarmerSimulator.clear();
+    window.FarmerReviewsAdmin.clear();
     state = { summary: null, orders: [], offset: 0, total: 0, current: null };
     requests.clear();
     bulkPending = null;
@@ -88,6 +89,16 @@
       const weight = node('span', ' · ' + (Number.isFinite(Number(s[stage + '_kg'])) && s[stage + '_kg'] !== null ? number(s[stage + '_kg']) + 'kg' : '—kg'), 'metric-weight');
       $(stage + '-value').replaceChildren(document.createTextNode(number(s[stage]) + '건'), weight);
     }
+    const boxCount = size => {
+      const value = s['confirmed_' + size + 'kg_boxes'];
+      return value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
+    };
+    const boxes2 = boxCount(2), boxes5 = boxCount(5);
+    const totalBoxes = boxes2 !== null && boxes5 !== null ? number(boxes2 + boxes5) : '—';
+    $("confirmed-boxes").replaceChildren(
+      node('span', '출고할 박스 총 ' + totalBoxes + '상자', 'metric-box-total'),
+      node('span', '5kg ' + (boxes5 === null ? '—' : number(boxes5)) + '상자 · 2kg ' + (boxes2 === null ? '—' : number(boxes2)) + '상자')
+    );
     $("updated-at").textContent = "전체 주문 기준 · 최근 확인 " + date(new Date().toISOString());
     document.querySelectorAll("[data-stage]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.stage === $("status-filter").value)));
   }
@@ -608,14 +619,16 @@
   window.FarmerFinance.init(() => !locked());
   window.FarmerDiscounts.init();
   window.FarmerSimulator.init();
+  window.FarmerReviewsAdmin.init();
   document.querySelectorAll('[data-admin-view]').forEach(button => button.addEventListener('click', () => {
     if (locked() || !window.FarmerFinance.canLeave() || !window.FarmerDiscounts.canLeave()) return;
     const view = button.dataset.adminView;
-    for (const name of ['operations', 'finance', 'discounts', 'simulator']) $(name + '-panel').hidden = name !== view;
+    for (const name of ['operations', 'finance', 'discounts', 'simulator', 'reviews']) $(name + '-panel').hidden = name !== view;
     document.querySelectorAll('[data-admin-view]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
     window.FarmerFinance.show(view);
     window.FarmerDiscounts.show(view);
     window.FarmerSimulator.show(view);
+    window.FarmerReviewsAdmin.show(view);
   }));
   if (!api?.ready()) {
     message("login-message", "관리 시스템 연결을 준비하고 있습니다.", true);

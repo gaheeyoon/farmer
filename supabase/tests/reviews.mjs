@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+export async function verifyReviews({db,rpc,admin,anon,expectError}){
+ const begin=args=>rpc('select public.farmer_review_begin($1,$2,$3,$4,$5) as result',args);
+ const publish=t=>rpc('select public.farmer_review_publish($1,$2) as result',[t.id,t.upload_token]);
+ const feed=(offset=0)=>rpc('select public.farmer_reviews($1) as result',[offset]);
+ const list=()=>rpc('select public.farmer_admin_reviews() as result');
+ const visibility=(id,status,version)=>rpc('select public.farmer_admin_review_visibility($1,$2,$3) as result',[id,status,version]);
+ await admin();const stock=(await rpc('select public.farmer_admin_summary() as result')).available_kg;
+ await anon();
+ const args=[randomUUID(),'맛있는 집','가족들과 맛있게 나누어 먹었어요.',2,true];
+ assert.equal((await begin([randomUUID(),'','',0,true])).ok,false);
+ assert.equal((await begin([randomUUID(),'','이야기',4,true])).ok,false);
+ assert.equal((await begin([randomUUID(),'','이야기',0,false])).ok,false);
+ await expectError(()=>list(),'permission denied');
+ const t=await begin(args);assert.equal(t.ok,true);assert.equal(t.paths.length,2);assert.deepEqual(await begin(args),t);
+ assert.equal((await begin([args[0],'다른 닉네임',...args.slice(2)])).ok,false);
+ await expectError(()=>db.query('select * from farmer_private.reviews'),'permission denied');
+ assert.equal((await feed()).total,0);
+ await expectError(()=>publish({...t,upload_token:randomUUID()}),'작성 요청');
+ await expectError(()=>publish(t),'업로드');
+ await expectError(()=>db.query("insert into storage.objects(bucket_id,name,metadata) values('farmer-reviews',$1,'{}')",[t.paths[0].replace('1.jpg','4.jpg')]),'row-level security');
+ await expectError(()=>db.query("insert into storage.objects(bucket_id,name,metadata) values('farmer-reviews','unrelated/1.jpg','{}')"),'row-level security');
+ for(const path of t.paths)await db.query("insert into storage.objects(bucket_id,name,metadata) values('farmer-reviews',$1,$2)",[path,JSON.stringify({mimetype:'image/jpeg',size:1200})]);
+ assert.equal((await db.query('select * from storage.objects')).rows.length,0);
+ await publish(t);await publish(t);assert.equal((await feed()).total,1);
+ assert.equal((await db.query('select * from storage.objects')).rows.length,2);
+ assert.equal((await begin(args)).published,true);
+ const row=(await feed()).reviews[0];assert.deepEqual(Object.keys(row).sort(),['id','display_name','body','published_at','photos'].sort());
+ await expectError(()=>db.query("insert into storage.objects(bucket_id,name,metadata) values('farmer-reviews',$1,'{}')",[t.paths[0]]),'row-level security');
+ const unnamed=await begin([randomUUID(),'   ','맛있어요!',0,true]);await publish(unnamed);
+ assert.equal((await feed()).reviews.find(r=>r.id===unnamed.id).display_name,'고구맙습니다 구매자');
+ await db.exec(`reset role;select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);set role authenticated;`);
+ await expectError(()=>list(),'관리자 권한');await expectError(()=>visibility(t.id,'hidden',2),'관리자 권한');
+ await admin();const r=(await list()).reviews.find(r=>r.id===t.id);await expectError(()=>visibility(t.id,'hidden',1),'변경');
+ await visibility(t.id,'hidden',r.version);await visibility(t.id,'hidden',r.version);await anon();assert.equal((await feed()).total,1);assert.equal((await db.query('select * from storage.objects')).rows.length,0);
+ await admin();const hidden=(await list()).reviews.find(r=>r.id===t.id);await visibility(t.id,'published',hidden.version);assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,stock);
+ await anon();assert.equal((await feed()).total,2);await expectError(()=>feed(-1),'조회');
+ let limited=false;for(let i=0;i<12;i++){const v=await begin([randomUUID(),'','짧은 후기',0,true]);if(!v.ok){limited=true;assert(v.message.includes('요청이 많습니다'));break;}}
+ assert(limited);assert.deepEqual(await begin(args),{ok:true,id:t.id,published:true});
+ await db.exec('reset role;');
+ for(let i=0;i<10;i++)await db.query("insert into farmer_private.reviews(request_id,fingerprint,display_name,body,photo_count,status,published_at) values($1,'test','기록','페이지 검증',0,'published',now())",[randomUUID()]);
+ await anon();assert.equal((await feed()).reviews.length,9);assert.equal((await feed()).next_offset,9);assert.equal((await feed(9)).reviews.length,3);assert.equal((await feed(9)).next_offset,null);
+ console.log('PASS: anonymous short reviews, default nickname, explicit consent, max three photos, bounded upload paths, private drafts, publish completeness, exact retries, hidden image access, admin authorization/versions, pagination, request limits and unchanged inventory.');
+}

@@ -17,6 +17,9 @@
   });
   function deliveryMode(card){
     const pickup=isPickup(card);card.querySelector('[data-gift-shipping-fields]').hidden=pickup;card.querySelector('[data-gift-pickup]').hidden=!pickup;
+    const toggle=card.querySelector('[data-gift-pickup-toggle]');
+    toggle.checked=pickup;
+    toggle.disabled=frozen()||!['hopungmi-5kg','hopungmi-5kg-pickup'].includes(field(card,'product_id').value)||(!pickup&&!products.some(p=>p.id==='hopungmi-5kg-pickup'&&p.available));
     for(const key of ['postal_code','address','address_detail']){const e=field(card,key);e.disabled=pickup;e.required=!pickup&&key!=='address_detail';if(pickup)e.setCustomValidity('');}
     card.querySelector('[data-gift-label="memo"]').firstChild.textContent=pickup?'수령 메모 ':'배송 메모 ';
     field(card,'memo').placeholder=pickup?'예: 오후에 방문할게요':'예: 문 앞에 놓아 주세요';
@@ -187,7 +190,14 @@
     else if (e.target.closest("[data-gift-search]")) search(card);
     else if (e.target.closest("[data-gift-close-search]")) { card.querySelector("[data-gift-search-panel]").hidden = true; card.querySelector("[data-gift-search]").focus(); }
   });
-  $("gift-deliveries").addEventListener("change",e=>{if(!frozen()&&e.target.matches('[data-gift-field="product_id"]'))update();});
+  $("gift-deliveries").addEventListener("change",e=>{
+    if(frozen())return;
+    if(e.target.matches('[data-gift-pickup-toggle]')){
+      const card=e.target.closest('.gift-card'),id=e.target.checked?'hopungmi-5kg-pickup':'hopungmi-5kg';
+      if(products.some(p=>p.id===id&&p.available))field(card,'product_id').value=id;
+      tell('');update();
+    }else if(e.target.matches('[data-gift-field="product_id"]'))update();
+  });
   $("gift-sponsor").addEventListener("change",()=>{if(!frozen()){tell("");update();}});
   $("gift-add").addEventListener("click", () => addCard(true));
   $("gift-close").addEventListener("click", () => { if (!pending) clear(); });
