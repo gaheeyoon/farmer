@@ -21,7 +21,7 @@
     $('finance-period').textContent=`${data.year}년 전체 기준 · 수입 = 주문 수입 + 추가 수입`;
     for(const [id,value] of [['finance-order-income',s.order_income],['finance-manual-income',s.manual_income],['finance-expense',expense],['finance-profit',Number(s.order_income)+Number(s.manual_income)-expense]])$(id).textContent=money(value);
     $('finance-order-meta').textContent=`${number(s.order_count)}건 · ${number(s.sold_kg)}kg 판매`;
-    $('finance-pending').textContent=`집계에서 제외한 입금 대기 금액 ${money(s.pending_income)} · 주문 수입에 포함된 받은 배송비 ${money(s.collected_shipping)}`;
+    $('finance-pending').textContent=`수입 제외: 입금 대기 ${money(s.pending_income)} · 발송 후 미수 ${money(s.outstanding_income||0)} · 주문 수입에 포함된 받은 배송비 ${money(s.collected_shipping)}`;
     const scale=Math.max(1,...data.months.flatMap(m=>[Number(m.income),Number(m.expense)]));
     $('finance-months').replaceChildren();$('finance-month-rows').replaceChildren();
     for(const m of data.months){

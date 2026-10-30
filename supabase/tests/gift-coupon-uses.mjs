@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+export async function verifyGiftCouponUses({db,rpc,admin,anon,expectError}) {
+ const code='GIFT-USES-'+randomUUID().slice(0,8),id=randomUUID();
+ const entry={id,code,mode:'fixed',amount:2000,percent:0,product_id:null,usage_limit:3,active:true};
+ const items=[1,2,1].map((quantity,i)=>({product_id:'hopungmi-5kg',quantity,recipient_label:'횟수 검증 '+i,message:''}));
+ const quote=ds=>rpc('select public.farmer_quote_gifts($1,$2) as result',[JSON.stringify(ds),code]);
+ const buy=(ds,request=randomUUID(),total=null)=>rpc('select public.farmer_buy_gifts($1,$2,$3,$4,$5,$6,$7,$8) as result',[request,'횟수 검증','01011112222','보내는 분',JSON.stringify(ds),code,total??(ds.reduce((n,d)=>n+d.quantity*22000,0)-2000),true]);
+ const used=async()=> (await rpc('select public.farmer_admin_discount_list($1,$2,$3) as result',[code,'',0])).codes[0].used_count;
+ const history=()=>rpc('select public.farmer_admin_discount_history($1,$2) as result',[id,0]);
+ const list=()=>rpc('select public.farmer_admin_order_list($1,$2,$3,$4) as result',['','횟수 검증',0,'']);
+ const cancel=o=>rpc('select public.farmer_admin_change_status($1,$2,$3,$4) as result',[o.id,'cancelled',o.version,randomUUID()]);
+ await admin();await rpc('select public.farmer_admin_discount_save($1,$2,$3) as result',[randomUUID(),JSON.stringify(entry),null]);
+ await anon();const q=await quote(items);assert.equal(q.discount_amount,2000);assert.equal(q.total,86000);
+ await expectError(()=>buy(items,randomUUID(),1),'판매 금액');
+ await admin();assert.equal(await used(),0);
+ await anon();const request=randomUUID(),receipt=await buy(items,request);assert.deepEqual(await buy(items,request),receipt);
+ await admin();assert.equal(await used(),3);let h=await history();assert.equal(h.total,1);assert.equal(h.entries[0].usage_count,3);assert.equal(h.entries[0].orders.length,3);assert.equal(h.entries[0].discount_amount,2000);
+ const rows=(await list()).orders.filter(o=>receipt.gifts.some(g=>g.order_number===o.order_number));
+ assert.equal(rows.reduce((n,o)=>n+o.quantity,0),4);assert.equal(rows.reduce((n,o)=>n+o.discount_amount,0),2000);
+ await cancel(rows.find(o=>o.order_number===receipt.gifts[0].order_number));assert.equal(await used(),2);
+ await anon();await expectError(()=>quote(items.slice(0,2)),'남은 사용 횟수');await expectError(()=>buy(items.slice(0,2)),'남은 사용 횟수');
+ await admin();assert.equal(await used(),2);assert.equal((await list()).orders.filter(o=>receipt.gifts.some(g=>g.order_number===o.order_number)).length,3);
+ const archived=rows.find(o=>o.order_number===receipt.gifts[1].order_number);
+ await rpc('select public.farmer_admin_archive_orders($1,$2,$3) as result',[JSON.stringify([{order_id:archived.id,expected_version:archived.version}]),false,randomUUID()]);assert.equal(await used(),1);
+ await anon();const one=await buy([{...items[0],quantity:3}]);await admin();assert.equal(await used(),2);
+ await anon();await expectError(()=>quote(items.slice(0,2)),'남은 사용 횟수');
+ const legacyArgs=[randomUUID(),'hopungmi-5kg',1,code,'횟수 검증','01011112222','테스트 주소 123','','',20000,true];
+ const ordinary=await rpc('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result',legacyArgs);
+ await admin();assert.equal(await used(),3);await anon();await expectError(()=>quote([items[0]]),'소진');
+ await admin();const remaining=(await list()).orders.filter(o=>o.status!=='cancelled'&&[receipt.gifts[2].order_number,one.gifts[0].order_number,ordinary.order_number].includes(o.order_number));
+ for(const o of remaining)await cancel(o);
+ assert.equal(await used(),0);assert.ok((await history()).entries.every(e=>e.released&&e.usage_count===0));
+ await anon();await expectError(()=>db.query('select farmer_private.discount_checkout_uses($1)',[request]),'permission denied');
+ console.log('PASS: three gift recipients consume three uses, box quantities do not multiply uses, historical checkout rows recalculate, partial cancellation/archive release, quote/submit limits, shared ordinary-code limits, unchanged discount and safe retries.');
+}

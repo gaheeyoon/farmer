@@ -18,5 +18,28 @@ export async function verifyGiftPickup({db,rpc,admin,anon,expectError}){
  await change(p,'shipped');p=(await list()).orders.find(o=>o.id===p.id);assert.equal(p.carrier,'방문 수령');await change(p,'delivered');assert.equal(await stock(),before-12);assert.equal((await stats()).totals.qty5,after.totals.qty5);
  const next=await create([{...pickup,quantity:1}]);p=(await list()).orders.find(o=>o.order_number===next.orders[0].order_number);const allocated=await stock();await change(p,'shipped');p=(await list()).orders.find(o=>o.id===p.id);await change(p,'cancelled');assert.equal(await stock(),allocated+5);assert.equal((await stats()).totals.qty5,after.totals.qty5);
  const exported=await rpc('select public.farmer_admin_export_orders($1,$2,$3) as result',['','방문선물검증','gift']);assert.ok(exported.orders.some(o=>o.fulfillment_method==='pickup'&&o.total===0));
+ // Public pickup sales may be disabled while administrative pickup gifts work.
+ await db.exec("reset role;begin;update public.farmer_products set active=false where id in ('hopungmi-2kg','hopungmi-5kg-pickup');update public.farmer_inventory set available_grams=3000000;");
+ const expectedWithinTransaction=async(fn,message)=>{await db.exec('savepoint negative_gift_pickup');try{await expectError(fn,message);}finally{await db.exec('rollback to savepoint negative_gift_pickup;release savepoint negative_gift_pickup;');}};
+ await anon();await expectedWithinTransaction(()=>rpc('select public.farmer_admin_gift_catalog() as result'),'permission denied');
+ const publicCatalog=await rpc('select public.farmer_catalog() as result');
+ assert.ok(!publicCatalog.products.some(p=>p.id==='hopungmi-5kg-pickup'));
+ assert.equal(publicCatalog.products.find(p=>p.id==='hopungmi-2kg').available,false);
+ await expectedWithinTransaction(()=>rpc("select public.farmer_quote('hopungmi-5kg-pickup',1,'') as result"),'판매 중인 상품');
+ await db.exec("reset role;select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);set role authenticated;");
+ await expectedWithinTransaction(()=>rpc('select public.farmer_admin_gift_catalog() as result'),'관리자 권한');
+ await admin();const privateCatalog=await rpc('select public.farmer_admin_gift_catalog() as result');
+ assert.equal(privateCatalog.products.find(p=>p.id==='hopungmi-5kg-pickup').available,true);
+ assert.equal(privateCatalog.products.find(p=>p.id==='hopungmi-2kg').available,false);
+ await expectedWithinTransaction(()=>create([shipping]),'판매 중인 상품');
+ const privateId=randomUUID(),privateItems=[{...pickup,quantity:1,gift_sponsor:'윤가희&홍세환'}],privateGift=await create(privateItems,privateId);
+ assert.equal(privateGift.total,0);assert.equal(await stock(),2995);assert.deepEqual(await create(privateItems,privateId),privateGift);assert.equal(await stock(),2995);
+ const privateOrder=(await list()).orders.find(o=>o.order_number===privateGift.orders[0].order_number);
+ assert.equal(privateOrder.product_id,'hopungmi-5kg-pickup');assert.equal(privateOrder.fulfillment_method,'pickup');assert.equal(privateOrder.total,0);
+ await db.exec('reset role;update public.farmer_inventory set available_grams=4000;');await admin();
+ assert.equal((await rpc('select public.farmer_admin_gift_catalog() as result')).products.find(p=>p.id==='hopungmi-5kg-pickup').available,false);
+ await expectedWithinTransaction(()=>create(privateItems),'재고가 부족');
+ await db.exec('rollback;');
+ console.log('PASS: private pickup gift catalog authorization, disabled public pickup sales, 2kg sold-out enforcement, joint gifts, stock shortage and exact retry.');
  console.log('PASS: free pickup gifts, canonical address without postcode, mixed-shipping atomic validation, zero payment, sponsor 5kg totals, exact replay, shared inventory and pickup handover/cancellation.');
 }

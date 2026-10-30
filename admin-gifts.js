@@ -84,7 +84,7 @@
     $("gift-close").disabled = false;
     tell("상품 정보를 불러오고 있습니다.");
     try {
-      const result = await api.rpc("farmer_catalog");
+      const result = await api.admin("farmer_admin_gift_catalog");
       if (current !== revision || !$("gift-dialog").open) return;
       products = result.products;
       busy = false;

@@ -15,7 +15,7 @@ export async function verifyFulfillmentCosts({db,rpc,admin,anon,expectError}){
  await db.exec('reset role;update public.farmer_inventory set available_grams=1000000;');await anon();
  const base={recipient_name:'비용 검증',recipient_phone:'01012345678',postal_code:'04524',address:'서울 중구 세종대로 110',address_detail:'',memo:''};
  const deliveries=[{...base,product_id:'hopungmi-2kg',quantity:3},{...base,product_id:'hopungmi-5kg-pickup',quantity:2}];
- const batch=randomUUID();await rpc('select public.farmer_submit_batch($1,$2,$3,$4,$5,$6,$7) as result',[batch,'비용 검증','01012345678',JSON.stringify(deliveries),'',72000,true]);
+ const batch=randomUUID();await rpc('select public.farmer_submit_batch($1,$2,$3,$4,$5,$6,$7) as result',[batch,'비용 검증','01012345678',JSON.stringify(deliveries),'',80000,true]);
  await admin();const orders=(await rpc('select public.farmer_admin_order_list($1,$2,$3,$4) as result',['','비용 검증',0,'sale'])).orders.filter(o=>o.batch_id===batch);
  for(const o of orders)await rpc('select public.farmer_admin_change_status($1,$2,$3,$4,$5,$6) as result',[o.id,'confirmed',1,randomUUID(),'','']);
  const gifts=await rpc('select public.farmer_admin_create_gifts($1,$2) as result',[randomUUID(),JSON.stringify([{...base,product_id:'hopungmi-5kg',quantity:2,gift_sponsor:'윤가희'},{...base,product_id:'hopungmi-5kg-pickup',quantity:4,gift_sponsor:'홍세환'}])]);

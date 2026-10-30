@@ -6,11 +6,12 @@
     pending: "입금 대기",
     confirmed: "입금 확인(배송 준비)",
     shipped: "배송 중",
+    shipped_unpaid: "배송 중 · 미입금",
     delivered: "배송 완료",
     cancelled: "취소",
   };
   const isPickup = o => o?.fulfillment_method === 'pickup' || o?.product_id === 'hopungmi-5kg-pickup' || String(o?.product_name || '').includes('방문 수령');
-  const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',delivered:'수령 완료',cancelled:'취소'};
+  const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',shipped_unpaid:'미수 · 수령 대기',delivered:'수령 완료',cancelled:'취소'};
   const stageLabel = (status,orders) => orders.length && orders.every(isPickup) ? pickupStatuses[status] : statuses[status];
   const freeGiftOwner = o => o.order_kind==='gift' ? o.gift_sponsor||'미지정' : Number(o.unit_price)>0&&Number(o.discount_amount)>=Number(o.unit_price) ? ({'고구맙습니다홍세환선물용':'홍세환','고구맙습니다윤가희선물용':'윤가희'})[o.discount_code]||'' : '';
   const statusText = o => o.awaiting_address && o.status === "confirmed" ? "입금 확인 · 주소 입력 대기" : o.order_kind === "gift" && o.status === "confirmed" ? (isPickup(o) ? "수령 준비" : "배송 준비") : isPickup(o) ? pickupStatuses[o.status] : statuses[o.status];
@@ -33,7 +34,9 @@
   const requests = new Map();
   const selected = new Set();
   const canSelect = o => !!o;
-  const nextStage = { pending: "confirmed", confirmed: "shipped", shipped: "delivered" };
+  const nextStage = { pending: 'confirmed', confirmed: 'shipped', shipped: 'delivered', shipped_unpaid:'shipped' };
+  const canMove=(o,status)=>({pending:['confirmed','shipped_unpaid'],confirmed:['shipped','shipped_unpaid'],shipped:['delivered','shipped_unpaid'],shipped_unpaid:['shipped']}[o.status]||[]).includes(status) && (status!=='shipped_unpaid'||o.order_kind==='sale'&&Number(o.total)>0&&!o.is_link_gift&&!o.awaiting_address);
+  const needsShipment=(o,status)=>['shipped','shipped_unpaid'].includes(status)&&['pending','confirmed'].includes(o.status);
   let bulkPending = null, bulkBusy = false;
   const locked = () => loading || bulkBusy || !!bulkPending || window.FarmerDelivery.locked() || window.FarmerOrderTools.locked();
   const selectedOrders = () => state.orders.filter(o => selected.has(o.id));
@@ -85,20 +88,19 @@
   function renderSummary() {
     const s = state.summary;
     $("stock-value").textContent = number(s.available_kg) + " kg";
-    for (const stage of ['pending', 'confirmed', 'shipped', 'delivered']) {
+    for (const stage of ['pending', 'confirmed', 'shipped', 'shipped_unpaid', 'delivered']) {
       const weight = node('span', ' · ' + (Number.isFinite(Number(s[stage + '_kg'])) && s[stage + '_kg'] !== null ? number(s[stage + '_kg']) + 'kg' : '—kg'), 'metric-weight');
       $(stage + '-value').replaceChildren(document.createTextNode(number(s[stage]) + '건'), weight);
     }
-    const boxCount = size => {
-      const value = s['confirmed_' + size + 'kg_boxes'];
-      return value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
-    };
-    const boxes2 = boxCount(2), boxes5 = boxCount(5);
-    const totalBoxes = boxes2 !== null && boxes5 !== null ? number(boxes2 + boxes5) : '—';
-    $("confirmed-boxes").replaceChildren(
-      node('span', '출고할 박스 총 ' + totalBoxes + '상자', 'metric-box-total'),
-      node('span', '5kg ' + (boxes5 === null ? '—' : number(boxes5)) + '상자 · 2kg ' + (boxes2 === null ? '—' : number(boxes2)) + '상자')
-    );
+    const boxLabels={pending:'박스 총 ',confirmed:'출고할 박스 총 ',shipped:'발송한 박스 총 ',shipped_unpaid:'발송한 박스 총 ',delivered:'전달한 박스 총 '};
+    for (const stage of Object.keys(boxLabels)) {
+      const boxCount=key=>s[key]!==null && s[key]!==undefined && Number.isFinite(Number(s[key])) ? Number(s[key]) : null;
+      const boxes2=boxCount(stage+'_2kg_boxes'),boxes5=boxCount(stage+'_5kg_boxes'),total=boxCount(stage+'_boxes');
+      $(stage+'-boxes').replaceChildren(
+        node('span',boxLabels[stage]+(total===null?'—':number(total))+'상자','metric-box-total'),
+        node('span','5kg '+(boxes5===null?'—':number(boxes5))+'상자 · 2kg '+(boxes2===null?'—':number(boxes2))+'상자')
+      );
+    }
     $("updated-at").textContent = "전체 주문 기준 · 최근 확인 " + date(new Date().toISOString());
     document.querySelectorAll("[data-stage]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.stage === $("status-filter").value)));
   }
@@ -112,18 +114,20 @@
   function renderSelection() {
     const orders = selectedOrders();
     const same = orders.length > 0 && orders.every(o => !o.deleted_at && !(o.awaiting_address && o.status === "confirmed") && o.status === orders[0].status);
-    const target = same ? nextStage[orders[0].status] : null;
+    const previous=$('bulk-status').value;
+    const allowed=same ? [...$('bulk-status').options].map(o=>o.value).filter(v=>v&&orders.every(o=>canMove(o,v))) : [];
+    const target=allowed.includes(previous)?previous:(same&&allowed.includes(nextStage[orders[0].status])?nextStage[orders[0].status]:allowed[0]);
     $("selection-count").textContent = `선택한 주문 ${orders.length}건 · ${number(orders.reduce((sum, o) => sum + Number(o.weight_grams || 0), 0) / 1000)}kg`;
-    for (const option of $('bulk-status').options) {option.disabled=option.value!==target;if(option.value)option.textContent=stageLabel(option.value,orders);}
+    for (const option of $('bulk-status').options) {option.disabled=!allowed.includes(option.value);if(option.value)option.textContent=option.value==='shipped'&&orders[0]?.status==='shipped_unpaid'?'입금 확인(발송 상태 유지)':stageLabel(option.value,orders);}
     $("bulk-status").value = target || "";
     $("bulk-status").disabled = locked() || !target;
     $("clear-selection").disabled = locked() || !orders.length;
     $("bulk-submit").disabled = loading || bulkBusy || window.FarmerOrderTools.locked() || window.FarmerDelivery.locked() || (!bulkPending && !target);
     $("bulk-submit").textContent = bulkBusy ? "변경 중…" : bulkPending ? "처리 결과 다시 확인" : "선택 주문 상태 변경";
-    $("bulk-shipping").hidden = target !== "shipped" || orders.every(isPickup);
+    $("bulk-shipping").hidden = !orders.some(o=>needsShipment(o,target)&&!isPickup(o));
     const oldValues = new Map([...$("shipment-inputs").querySelectorAll("input")].map(i => [i.dataset.parcelKey, i.value]));
     $("shipment-inputs").replaceChildren();
-    if (target === "shipped") for (const o of orders.filter(o => !isPickup(o))) {
+    if (orders.some(o=>needsShipment(o,target))) for (const o of orders.filter(o => needsShipment(o,target)&&!isPickup(o))) {
       const row = node("div", undefined, "shipment-row"), label = node("label", o.order_number + " · " + (o.recipient_name || o.customer_name));
       const fields=node('div');fields.id='shipment-'+o.id;
       label.append(node('small',o.quantity+'상자 · 상자별 송장번호 · 선택'));
@@ -158,24 +162,24 @@
     if (loading || bulkBusy || window.FarmerOrderTools.locked() || window.FarmerDelivery.locked()) return;
     if (!bulkPending) {
       const orders = selectedOrders(), status = $("bulk-status").value;
-      if (!orders.length || !orders.every(o => nextStage[o.status] === status)) return;
+      if (!orders.length || !orders.every(o => canMove(o,status))) return;
       const carrier = $("bulk-carrier").value.trim();
-      if (status === "shipped" && orders.some(o => !isPickup(o)) && !carrier) {
+      if (orders.some(o=>needsShipment(o,status)&&!isPickup(o)) && !carrier) {
         message("bulk-message", "택배사 또는 배송 방법을 입력해 주세요.", true);
         $("bulk-carrier").focus();
         return;
       }
       let shipmentNumbers=new Map();
-      if(status==='shipped')try{for(const o of orders.filter(o=>!isPickup(o)))shipmentNumbers.set(o.id,parcels.encoded($('shipment-'+o.id)));}catch(error){message('bulk-message',error.message,true);return;}
+      if(orders.some(o=>needsShipment(o,status)))try{for(const o of orders.filter(o=>needsShipment(o,status)&&!isPickup(o)))shipmentNumbers.set(o.id,parcels.encoded($('shipment-'+o.id)));}catch(error){message('bulk-message',error.message,true);return;}
       const allPickup = orders.every(isPickup);
       const extra = status === "confirmed"
         ? `입금을 확인하셨나요? 재고 ${number(orders.reduce((sum, o) => sum + o.weight_grams, 0) / 1000)}kg이 차감됩니다.`
-        : status === "delivered" ? (allPickup ? "실제 방문 수령이 완료된 주문인지 확인해 주세요." : "실제 배송 또는 수령이 완료된 주문인지 확인해 주세요.") : (allPickup ? "방문 수령 대기로 변경합니다." : "입력한 배송 정보로 발송 처리합니다.");
+        : status==='shipped_unpaid' ? '미입금 상태로 발송한 주문입니다. 수입에서는 제외하며, 아직 차감되지 않은 재고는 차감합니다.' : orders.every(o=>o.status==='shipped_unpaid') ? '입금을 확인하셨나요? 발송 정보와 재고는 그대로 유지됩니다.' : status === "delivered" ? (allPickup ? "실제 방문 수령이 완료된 주문인지 확인해 주세요." : "실제 배송 또는 수령이 완료된 주문인지 확인해 주세요.") : (allPickup ? "방문 수령 대기로 변경합니다." : "입력한 배송 정보로 발송 처리합니다.");
       if (!confirm(`${orders.length}건을 ‘${stageLabel(status,orders)}’ 상태로 변경할까요?\n${extra}`)) return;
       bulkPending = { p_status: status, p_orders: orders.map(o => ({
         order_id: o.id, expected_version: o.version, request_id: api.uuid(),
-        carrier: status === "shipped" ? (isPickup(o) ? "방문 수령" : carrier) : "",
-        tracking_number: status === "shipped" && !isPickup(o) ? shipmentNumbers.get(o.id) : "",
+        carrier: needsShipment(o,status) ? (isPickup(o) ? "방문 수령" : carrier) : "",
+        tracking_number: needsShipment(o,status) && !isPickup(o) ? shipmentNumbers.get(o.id) : "",
       })) };
     }
     const currentVersion = version, payload = bulkPending, completionLabel=stageLabel(bulkPending.p_status,selectedOrders());
@@ -410,7 +414,7 @@
     ];
     for (const [key, value] of details)
       $("order-details").append(node("dt", key), node("dd", value));
-    $("shipping-fields").hidden = o.status !== "confirmed" || isPickup(o) || o.awaiting_address;
+    $("shipping-fields").hidden = !(["pending","confirmed"].includes(o.status)) || isPickup(o) || o.awaiting_address;
     $("carrier").value = isPickup(o) ? "방문 수령" : o.carrier;
     parcels.mount($('tracking'),o,'tracking');
     $("order-actions").replaceChildren();
@@ -418,19 +422,22 @@
       {
         pending: [
           ["confirmed", "입금 확인(배송 준비)"],
+          ["shipped_unpaid", "미입금 상태로 발송"],
           ["cancelled", "주문 취소"],
         ],
         confirmed: [
           ["shipped", "발송 처리"],
+          ["shipped_unpaid", "미입금 상태로 발송"],
           ["cancelled", "주문 취소"],
         ],
-        shipped: isPickup(o) ? [["delivered","수령 완료 처리"],["cancelled","주문 취소"]] : [["delivered", "배송 완료 처리"]],
+        shipped: isPickup(o) ? [["delivered","수령 완료 처리"],["cancelled","주문 취소"]] : [["delivered", "배송 완료 처리"],["shipped_unpaid","미입금으로 정정"]],
+        shipped_unpaid:[["shipped","입금 확인(발송 상태 유지)"]],
       }[o.status] || [];
     for (const [status, label] of choices) {
-      if (status === "shipped" && o.awaiting_address) continue;
+      if (['shipped','shipped_unpaid'].includes(status) && o.awaiting_address || status==='shipped_unpaid'&&!canMove(o,status)) continue;
       const b = node(
         "button",
-        (isPickup(o) && status !== "cancelled" ? ({confirmed:"입금 확인(수령 준비)",shipped:"수령 대기 처리",delivered:"수령 완료 처리"})[status] : label),
+        (isPickup(o) && status !== "cancelled" && status !== "shipped_unpaid" && o.status !== "shipped_unpaid" ? ({confirmed:"입금 확인(수령 준비)",shipped:"수령 대기 처리",delivered:"수령 완료 처리"})[status] : label),
         "button" + (status === "cancelled" ? " danger" : ""),
       );
       b.type = "button";
@@ -442,7 +449,7 @@
         ? `입금을 확인하면 재고 ${number(o.weight_grams / 1000)}kg이 차감됩니다.`
         : o.status === "confirmed"
           ? `${isPickup(o) ? "수령 전" : "배송 전"} 취소하면 재고 ${number(o.weight_grams / 1000)}kg이 복구됩니다.`
-          : "";
+          : o.status==='shipped_unpaid' ? "미수 주문입니다. 입금 확인 시 재고와 발송 정보는 유지됩니다." : "";
     message("order-message", "");
     $("order-dialog").showModal();
   }
@@ -450,19 +457,19 @@
     if (locked()) return;
     const o = state.current;
     if (!o) return;
-    if (status === "shipped" && !isPickup(o) && !$("carrier").value.trim()) {
+    if (needsShipment(o,status) && !isPickup(o) && !$("carrier").value.trim()) {
       message("order-message", "택배사 또는 배송 방법을 입력해 주세요.", true);
       $("carrier").focus();
       return;
     }
     let parcelPayload='';
-    if(status==='shipped'&&!isPickup(o))try{parcelPayload=parcels.encoded($('tracking'));}catch(error){message('order-message',error.message,true);return;}
+    if(needsShipment(o,status)&&!isPickup(o))try{parcelPayload=parcels.encoded($('tracking'));}catch(error){message('order-message',error.message,true);return;}
     const prompt =
       status === "confirmed"
         ? `입금을 확인하셨나요? ${o.order_number}를 확정하고 재고 ${number(o.weight_grams / 1000)}kg을 차감할까요?`
         : status === "cancelled"
           ? `${o.order_number}를 취소할까요?`
-          : status === "shipped"
+          : status==='shipped_unpaid' ? '미입금 상태로 발송 처리할까요? 수입에서 제외하며, 아직 차감되지 않은 재고는 차감됩니다.' : o.status==='shipped_unpaid' ? '입금을 확인하셨나요? 발송 정보와 재고는 그대로 유지됩니다.' : status === "shipped"
             ? (isPickup(o) ? "방문 수령 대기로 변경할까요?" : "입력한 배송 정보로 발송 처리할까요?")
             : (isPickup(o) ? "방문 수령이 완료되었나요? 완료 일시가 기록됩니다." : "실제 배송이 완료되었나요? 완료 일시가 기록됩니다.");
     if (!confirm(prompt)) return;
@@ -534,6 +541,7 @@
     filterOrders();
   }));
   $("status-filter").addEventListener("change", filterOrders);
+  $("bulk-status").addEventListener("change",renderSelection);
   $("kind-filter").addEventListener("change", filterOrders);
   $("open-gift").addEventListener("click", () => { if (!locked()) window.FarmerGifts.open(); });
   window.FarmerGiftLinks.init(async () => { await load().catch(() => {}); });

@@ -201,11 +201,12 @@
       }
       .metrics {
         display: grid;
-        grid-template-columns: 1.2fr repeat(4, 1fr);
+        grid-template-columns: minmax(0,1.2fr) repeat(5,minmax(0,1fr));
         gap: 16px;
         margin: 32px 0;
       }
       .metric {
+        min-width: 0;
         background: var(--paper);
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -335,6 +336,7 @@
         background: #e5dbe8;
         color: var(--purple);
       }
+      .badge.shipped_unpaid {background:#fbe5da;color:#9a3e21}
       .badge.shipped {
         background: #dce7ee;
         color: #30546b;
@@ -463,6 +465,9 @@
       }
       .hidden-auth {
         display: none;
+      }
+      @media (min-width: 761px) and (max-width: 1100px) {
+        .metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
       }
       @media (max-width: 760px) {
         .bar {
@@ -609,20 +614,21 @@
         <div class="metrics">
           <div class="metric primary">
             <p>판매 가능 재고</p>
-            <strong id="stock-value">—</strong><small>입금 확인 · 선물 등록 시 차감</small
+            <strong id="stock-value">—</strong><small>입금 확인 · 미수 발송 · 선물 등록 시 차감</small
             ><br /><button id="open-stock">재고 입고 · 조정</button>
           </div>
           <button type="button" class="metric stage" data-stage="pending" aria-pressed="false">
-            <span>입금 대기</span><strong id="pending-value">—</strong><small>입금 확인 전</small>
+            <span>입금 대기</span><strong id="pending-value">—</strong><span id="pending-boxes" class="metric-boxes"><span class="metric-box-total">박스 총 —상자</span><span>5kg —상자 · 2kg —상자</span></span><small>입금 확인 전</small>
           </button>
           <button type="button" class="metric stage" data-stage="confirmed" aria-pressed="false">
             <span>입금 확인(배송 준비)</span><strong id="confirmed-value">—</strong><span id="confirmed-boxes" class="metric-boxes"><span class="metric-box-total">출고할 박스 총 —상자</span><span>5kg —상자 · 2kg —상자</span></span><small>포장 · 발송 준비</small>
           </button>
           <button type="button" class="metric stage" data-stage="shipped" aria-pressed="false">
-            <span>배송 중</span><strong id="shipped-value">—</strong><small>발송한 주문</small>
+            <span>배송 중</span><strong id="shipped-value">—</strong><span id="shipped-boxes" class="metric-boxes"><span class="metric-box-total">박스 총 —상자</span><span>5kg —상자 · 2kg —상자</span></span><small>발송한 주문</small>
           </button>
+          <button type="button" class="metric stage" data-stage="shipped_unpaid" aria-pressed="false"><span>배송 중 · 미입금</span><strong id="shipped_unpaid-value">—</strong><span id="shipped_unpaid-boxes" class="metric-boxes"><span class="metric-box-total">박스 총 —상자</span><span>5kg —상자 · 2kg —상자</span></span><small>발송 후 입금 확인 필요</small></button>
           <button type="button" class="metric stage" data-stage="delivered" aria-pressed="false">
-            <span>배송 완료</span><strong id="delivered-value">—</strong><small>전달을 마친 주문</small>
+            <span>배송 완료</span><strong id="delivered-value">—</strong><span id="delivered-boxes" class="metric-boxes"><span class="metric-box-total">박스 총 —상자</span><span>5kg —상자 · 2kg —상자</span></span><small>전달을 마친 주문</small>
           </button>
         </div>
         <section class="panel">
@@ -643,6 +649,7 @@
                 <option value="pending">입금 대기</option>
                 <option value="confirmed">입금 확인(배송 준비)</option>
                 <option value="shipped">배송 중</option>
+              <option value="shipped_unpaid">배송 중 · 미입금</option>
                 <option value="delivered">배송 완료</option>
                 <option value="cancelled">취소</option>
                 <option value="deleted">삭제된 주문</option>
@@ -659,7 +666,7 @@
             </div>
             <button class="button" type="submit">검색</button>
           </form>
-          <div class="actions" style="justify-content:flex-end;margin-bottom:16px"><button type="button" class="button secondary" id="export-orders">엑셀 다운로드</button></div>
+          <div class="actions" style="justify-content:flex-end;margin-bottom:16px"><button type="button" class="button secondary" id="export-orders">엑셀 다운로드</button><button type="button" class="button secondary" id="export-courier" title="현재 검색 조건의 전체 주문을 택배사 양식의 10개 열로 다운로드">엑셀 다운로드(택배사용)</button></div>
           <div class="bulk-toolbar" aria-label="선택 주문 일괄 처리">
             <strong id="selection-count" aria-live="polite">선택한 주문 0건 · 0kg</strong>
             <button type="button" class="button secondary" id="clear-selection" disabled>선택 해제</button>
@@ -668,6 +675,7 @@
               <option value="">변경할 상태</option>
               <option value="confirmed">입금 확인(배송 준비)</option>
               <option value="shipped">배송 중</option>
+              <option value="shipped_unpaid">배송 중 · 미입금</option>
               <option value="delivered">배송 완료</option>
             </select>
             <button type="button" class="button" id="bulk-submit" disabled>선택 주문 상태 변경</button>
@@ -712,7 +720,7 @@
             </div>
           </div>
           <p class="help">
-            같은 단계의 주문을 체크하면 한 번에 다음 단계로 변경할 수 있습니다.
+            같은 단계의 주문을 체크한 뒤 변경할 상태를 선택해 주세요. 미입금 발송과 입금 확인도 한 번에 처리할 수 있습니다.
             주문번호를 누르면 배송지·메모 확인과 개별 취소가 가능합니다.
           </p>
         </section>
@@ -777,7 +785,7 @@
           <div id="finance-data" hidden>
             <p class="finance-note" id="finance-period"></p>
             <div class="finance-cards"><article class="finance-card"><p>주문 수입</p><strong id="finance-order-income">—</strong><small id="finance-order-meta"></small></article><article class="finance-card"><p>추가 수입</p><strong id="finance-manual-income">—</strong><small>현장 판매 등 직접 기록</small></article><article class="finance-card"><p>총지출 · 추정 포함</p><strong id="finance-expense">—</strong><small>장부 지출 + 미기록 택배·상자비 추정</small></article><article class="finance-card profit"><p>비용 반영 예상 손익</p><strong id="finance-profit">—</strong><small>전체 수입 − 추정 포함 총지출</small></article></div>
-            <p class="finance-note">주문 수입은 입금 확인·배송 중·배송 완료인 일반 주문의 실제 주문금액을 입금 확인일 기준으로 집계합니다. 선물·취소·입금 대기 주문은 제외합니다. 무상 선물도 택배·상자 비용에 포함하며, 방문 수령은 상자비만 반영합니다.</p><p class="finance-note" id="finance-pending"></p>
+            <p class="finance-note">주문 수입은 입금 확인·배송 중·배송 완료인 일반 주문의 실제 주문금액을 입금 확인일 기준으로 집계합니다. 선물·취소·입금 대기·미입금 발송 주문은 수입에서 제외합니다. 무상 선물도 택배·상자 비용에 포함하며, 방문 수령은 상자비만 반영합니다.</p><p class="finance-note" id="finance-pending"></p>
             <section class="panel finance-fulfillment" aria-labelledby="finance-cost-heading">
               <div class="topline"><div><h2 id="finance-cost-heading">택배비·상자비 자동 계산</h2><p class="finance-note" id="finance-cost-counts"></p></div></div>
               <form id="finance-cost-form" class="finance-cost-form"><div class="field"><label for="finance-shipping">상자당 택배비 (원)</label><input id="finance-shipping" type="number" min="0" max="100000000" step="1" value="4000" inputmode="numeric" required /></div><div class="field"><label for="finance-packing">상자당 상자비 (원)</label><input id="finance-packing" type="number" min="0" max="100000000" step="1" value="1500" inputmode="numeric" required /></div><button class="button secondary" id="finance-cost-save" type="submit">기본값 저장</button></form>
@@ -962,17 +970,17 @@
     <dialog id="gift-links-dialog" aria-labelledby="gl-title"><div class="actions" style="justify-content:space-between"><h2 id="gl-title">선물 링크 관리</h2><button id="gl-close" class="button secondary" type="button">닫기</button></div><p class="notice">관리자는 모든 선물 링크를 확인하고 복사할 수 있습니다. 받는 분의 주소 등록은 입금 확인 후 가능하며, 주소 등록 전에는 발송할 수 없습니다. 기한이 지난 선물은 연장하거나 취소해 주세요. 취소하면 확보한 재고가 복구되며, 입금된 금액의 환불은 별도로 처리해야 합니다.</p><p id="gl-summary" class="message"></p><details><summary>무상 선물 링크 만들기</summary><form id="gl-form"><fieldset id="gl-fields"><div class="row"><div class="field"><label for="gl-sender">보내는 분 *</label><input id="gl-sender" required maxlength="40" value="홍세환"></div><div class="field"><label for="gl-recipient">받는 분 이름 또는 호칭 *</label><input id="gl-recipient" required maxlength="40"></div></div><div class="row"><div class="field"><label for="gl-product">상품 *</label><select id="gl-product" required></select></div><div class="field"><label for="gl-quantity">상자 수 *</label><input id="gl-quantity" type="number" required min="1" max="99" step="1" value="1"></div></div><div class="field"><label for="gl-text">선물 메시지</label><textarea id="gl-text" maxlength="300" rows="3"></textarea></div><div class="field"><label for="gl-days">주소 등록 기한 (일) *</label><input id="gl-days" type="number" min="1" max="90" value="30" required></div></fieldset><button id="gl-create" class="button" type="submit">무상 선물 링크 만들기</button></form></details><p id="gl-message" class="message" role="status"></p><button id="gl-retry" class="button" type="button" hidden>처리 결과 다시 확인</button><div class="actions" style="margin-top:20px"><button id="gl-refresh" class="button secondary" type="button">새로고침</button><a href="./#gift" class="button secondary" target="_blank" rel="noopener">선물 구매 페이지 (새 창)</a></div><div id="gl-rows"></div><div class="pagination"><button id="gl-prev" type="button" class="button secondary">이전</button><span id="gl-page"></span><button id="gl-next" type="button" class="button secondary">다음</button></div></dialog><footer class="farmer-footer" aria-label="판매자 정보"><div class="farmer-footer-inner"><div class="farmer-footer-top"><div><a class="farmer-footer-brand" href="./">어쩌다 농부</a><p class="farmer-footer-tagline">첫 번째 고구마, 고구맙습니다.</p></div><nav class="farmer-footer-links" aria-label="이용 정책"><a href="policies.html#terms">이용약관</a><a href="policies.html#privacy"><strong>개인정보처리방침</strong></a><a href="https://www.ftc.go.kr/bizCommPop.do?wrkr_no=7640202713" target="_blank" rel="noopener noreferrer">사업자정보 확인 <span class="farmer-footer-external" aria-hidden="true">↗</span><span class="farmer-footer-sr"> (새 창)</span></a></nav></div><dl class="farmer-footer-details"><div><dt>상호</dt><dd>홍세환소셜라운지</dd></div><div><dt>대표자</dt><dd>홍세환</dd></div><div><dt>사업자등록번호</dt><dd>764-02-02713</dd></div><div><dt>통신판매업 신고</dt><dd>2025-충남태안-0053</dd></div><div class="farmer-footer-address"><dt>사업장 주소</dt><dd>충청남도 태안군 원북면 원이로 804-59</dd></div><div><dt>고객 문의</dt><dd><a href="tel:01051285171">010-5128-5171</a></dd></div><div class="farmer-footer-email"><dt>이메일</dt><dd><a href="mailto:a5312559@gmail.com">a5312559@gmail.com</a><div class="farmer-footer-payment"><aside class="bank-transfer" data-bank-transfer aria-label="입금 계좌 안내"><div class="bank-transfer-row"><span class="bank-transfer-number">국민 697201-00-081099</span><button class="bank-transfer-copy" type="button" aria-label="은행과 계좌번호 복사">복사하기</button></div></aside></div></dd></div><div><dt>개인정보 보호책임자</dt><dd>윤가희 · <a href="tel:01051285171">010-5128-5171</a></dd></div></dl><div class="farmer-footer-bottom"><span>© 2026 홍세환소셜라운지</span><div><a href="admin.html">농부 관리실</a><a href="#top">처음으로 ↑</a></div></div></div></footer><script src="payment-config.js?v=20261019-bank"></script><script src="bank-transfer.js?v=20261019-3"></script>
     <script src="farmer-config.js"></script>
     <script src="farmer-api.js?v=20261018-session1"></script>
-    <script src="gift-common.js?v=20261019-3"></script><script src="admin-gift-links.js?v=20261019-adminlinks3"></script><script src="admin-gifts.js?v=20261026-joint1"></script>
+    <script src="gift-common.js?v=20261019-3"></script><script src="admin-gift-links.js?v=20261019-adminlinks3"></script><script src="admin-gifts.js?v=20261026-privatepickup1"></script>
     <script src="fulfillment-math.js?v=20261021-costs1"></script>
-    <script src="admin-finance.js?v=20261021-costs1"></script>
-    <script src="admin-discounts.js?v=20261018-codes1"></script>
+    <script src="admin-finance.js?v=20261026-pickup-unpaid1"></script>
+    <script src="admin-discounts.js?v=20261026-recipientuses1"></script>
     <script src="simulation-math.js?v=20261020-pickupcost1"></script>
-    <script src="admin-simulator.js?v=20261021-costs1"></script>
+    <script src="admin-simulator.js?v=20261026-pickup-unpaid1"></script>
     <script src="admin-parcels.js?v=20261021-parcels1"></script>
-    <script src="admin-delivery.js?v=20261021-parcels1"></script>
+    <script src="admin-delivery.js?v=20261026-pickup-unpaid1"></script>
     <script src="admin-xlsx.js?v=20261020-1"></script>
-    <script src="admin-order-tools.js?v=20261021-parcels1"></script>
+    <script src="admin-order-tools.js?v=20261030-courier-export1"></script>
     <script src="admin-reviews.js?v=20261024-1"></script>
-<script src="admin.js?v=20261026-box-counts2"></script>
+<script src="admin.js?v=20261027-stage-boxes1"></script>
   </body>
 </html>

@@ -28,7 +28,7 @@
   const pickupPlace = '원북면 원이로 804-59 (홍세환 소셜라운지)';
   const isPickup = o => o?.fulfillment_method === 'pickup' || o?.product_id === pickupId || o?.id === pickupId || String(o?.product_name || '').includes('방문 수령');
   const pickupProduct = id => id === pickupId || isPickup(products.find(p => p.id === id));
-  const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',delivered:'수령 완료',cancelled:'주문 취소'};
+  const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',shipped_unpaid:'미수 · 수령 대기',delivered:'수령 완료',cancelled:'주문 취소'};
   const requests = new Map();
   const message = (id, text) => {
     $(id).textContent = text;
@@ -87,6 +87,9 @@
   });
   function syncFulfillment(card) {
     const pickup = pickupProduct(field(card, 'product_id').value);
+    const toggle=card.querySelector('[data-pickup-toggle]');
+    toggle.checked=pickup;
+    toggle.disabled=locked || !products.some(p=>p.id===pickupId&&p.available) || !['hopungmi-5kg',pickupId].includes(field(card,'product_id').value);
     card.dataset.fulfillment = pickup ? 'pickup' : 'shipping';
     card.querySelector('[data-shipping-fields]').hidden = pickup;
     card.querySelector('[data-pickup-info]').hidden = !pickup;
@@ -181,8 +184,9 @@
       ...products.map((p) => {
         const o = document.createElement("option");
         o.value = p.id;
+        o.hidden = p.id === pickupId;
         o.textContent =
-          p.name + " · " + money(p.price) + (p.available ? "" : " · 품절");
+          (p.id===pickupId ? '호풍미 5kg' : p.name) + " · " + money(p.price) + (p.available ? "" : " · 품절");
         o.defaultSelected = p.id === "hopungmi-5kg";
         o.disabled = !p.available;
         return o;
@@ -200,6 +204,9 @@
       card = fragment.querySelector(".delivery-card"),
       id = ++sequence;
     card.dataset.key = String(id);
+    const pickupToggle=card.querySelector('[data-pickup-toggle]');
+    pickupToggle.id=`delivery-${id}-pickup`;
+    card.querySelector('[data-pickup-label]').htmlFor=pickupToggle.id;
     card.querySelectorAll("[data-field]").forEach((el) => {
       const key = el.dataset.field;
       el.id = `delivery-${id}-${key}`;
@@ -449,6 +456,11 @@
     $('form-errors').hidden = true;
   });
   form.addEventListener("change", (e) => {
+    if (!locked && e.target.matches('[data-pickup-toggle]')) {
+      const card=e.target.closest('.delivery-card');
+      field(card,'product_id').value=e.target.checked ? pickupId : 'hopungmi-5kg';
+      stale();clearDiscount();refreshCards();
+    }
     if (!locked && (e.target.id === "customer" || e.target.id === "phone")) {
       if (e.target.id === "phone") e.target.value = formatPhone(e.target.value);
       saveOrderer();
@@ -468,7 +480,7 @@
     if (!value) refreshCards();
   }
   const statusLabels = {
-    pending: "입금 대기", confirmed: "입금 확인(배송 준비)", shipped: "배송 중",
+    pending: "입금 대기", confirmed: "입금 확인(배송 준비)", shipped: "배송 중", shipped_unpaid: "배송 중 · 미입금",
     delivered: "배송 완료", cancelled: "주문 취소",
   };
   const node = (tag, text, className) => {
@@ -503,7 +515,7 @@
       card.append(detail);
       if (isPickup(o)) card.append(node('p', `수령 장소: ${pickupPlace}`, 'result-recipient'));
       const total = node("div", undefined, "result-total");
-      const awaitingPayment = container.id === "lookup-cards" && o.status === "pending" && Number(o.total) > 0;
+      const awaitingPayment = container.id === "lookup-cards" && ['pending','shipped_unpaid'].includes(o.status) && Number(o.total) > 0;
       total.append(node("span", awaitingPayment ? "입금하실 금액" : "주문 금액"), node("strong", money(o.total)));
       if (awaitingPayment) {total.classList.add('result-total-pending');total.append(window.FarmerBank.create());}
       card.append(total);

@@ -81,14 +81,14 @@
    const result=await api.admin('farmer_admin_discount_history',{p_code_id:id,p_offset:historyOffset});if(ticket!==historyTicket||generation!==epoch)return;
    historyTotal=result.total;$('coupon-history-page').textContent=result.total?`${historyOffset+1}–${Math.min(historyOffset+result.entries.length,result.total)} / ${n(result.total)}건`:'0건';
    for(const e of result.entries){
-    const item=node('article',undefined,'coupon-history-item'),head=node('div',undefined,'coupon-history-head');head.append(node('strong',money(e.discount_amount)+' 할인'),node('span',e.released?'전체 취소 · 수량 복원':'사용 처리','coupon-state '+(e.released?'inactive':'')));item.append(head,node('span',date(e.created_at)+' · 사용 당시 코드 '+e.code,'coupon-meta'));
+    const item=node('article',undefined,'coupon-history-item'),head=node('div',undefined,'coupon-history-head');head.append(node('strong',money(e.discount_amount)+' 할인'),node('span',e.released?'전체 취소 · 수량 복원':n(e.usage_count??1)+'회 사용','coupon-state '+(e.released?'inactive':'')));item.append(head,node('span',date(e.created_at)+' · 사용 당시 코드 '+e.code,'coupon-meta'));
     const orders=node('div',undefined,'coupon-history-orders');for(const o of e.orders||[])orders.append(node('span',o.order_number+' · '+(orderStates[o.status]||o.status)));item.append(orders);$('coupon-history-list').append(item);
    }
    msg('coupon-history-message',result.total?'':'아직 사용한 주문이 없습니다.');$('coupon-history-prev').disabled=historyOffset===0;$('coupon-history-next').disabled=historyOffset+result.entries.length>=result.total;
   }catch(e){if(ticket===historyTicket&&generation===epoch)msg('coupon-history-message',e.message,true);}
   finally{if(ticket===historyTicket&&generation===epoch)historyLoading=false;}
  }
- function showHistory(c){if(!canLeave())return;historyCode=c;historyOffset=0;historyLoading=false;$('coupon-history-title').textContent=c.code+' · 사용 내역';$('coupon-history-note').textContent='주문서별 사용 내역입니다. 여러 배송지는 한 건으로 표시합니다.';$('coupon-history-dialog').showModal();loadHistory();}
+ function showHistory(c){if(!canLeave())return;historyCode=c;historyOffset=0;historyLoading=false;$('coupon-history-title').textContent=c.code+' · 사용 내역';$('coupon-history-note').textContent='선물하기는 받는 분별 1회로 집계합니다. 한 번에 신청한 선물은 묶어 표시하며, 취소·삭제된 건은 제외합니다.';$('coupon-history-dialog').showModal();loadHistory();}
  function clearHistory(){historyTicket++;historyLoading=false;historyCode=null;historyOffset=0;historyTotal=0;$('coupon-history-list').replaceChildren();for(const id of ['coupon-history-title','coupon-history-note','coupon-history-message','coupon-history-page'])$(id).textContent='';}
  function clear(){epoch++;loading=false;busy=false;pending=null;editing=null;offset=0;data=null;clearHistory();$('coupon-data').hidden=true;$('coupon-rows').replaceChildren();$('coupon-form').reset();$('coupon-filter').reset();$('coupon-product').replaceChildren();$('coupon-count').textContent='';$('coupon-page').textContent='';$('discounts-panel').hidden=true;msg('coupon-message','');msg('coupon-form-message','');lock(false);controls(false);for(const id of ['coupon-dialog','coupon-history-dialog'])if($(id).open)$(id).close();}
  function init(){

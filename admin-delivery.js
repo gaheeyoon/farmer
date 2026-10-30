@@ -24,8 +24,8 @@
   P.mount($('edit-delivery-tracking_number'),order,'edit-parcel');
   const isPickup=pickup(order);$('delivery-edit-address-fields').hidden=isPickup;$('delivery-edit-tracking-fields').hidden=isPickup;
   for(const k of ['postal_code','address'])input(k).required=!isPickup;
-  input('carrier').required=!isPickup&&['shipped','delivered'].includes(order.status);
-  $('delivery-edit-context').textContent=order.awaiting_address?'관리자가 배송지를 등록하면 받는 분의 추가 주소 등록은 종료됩니다.':isPickup?'방문 수령 주문입니다. 받는 분과 수령 메모를 수정할 수 있습니다.':['shipped','delivered'].includes(order.status)?'사이트에 저장된 배송 기록을 수정합니다. 실제 배송지 변경은 택배사 확인이 필요합니다.':'';
+  input('carrier').required=!isPickup&&['shipped','shipped_unpaid','delivered'].includes(order.status);
+  $('delivery-edit-context').textContent=order.awaiting_address?'관리자가 배송지를 등록하면 받는 분의 추가 주소 등록은 종료됩니다.':isPickup?'방문 수령 주문입니다. 받는 분과 수령 메모를 수정할 수 있습니다.':['shipped','shipped_unpaid','delivered'].includes(order.status)?'사이트에 저장된 배송 기록을 수정합니다. 실제 배송지 변경은 택배사 확인이 필요합니다.':'';
   $('delivery-edit-memo-label').textContent=isPickup?'수령 메모':'배송 메모';tell('');sync();input('recipient_name').focus();
  }
  function canClose(){if(frozen())return false;if(editing&&dirty&&!confirm('수정한 배송 정보를 저장하지 않고 닫을까요?'))return false;return true;}

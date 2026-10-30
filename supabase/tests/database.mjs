@@ -47,7 +47,7 @@ const submit=args=>rpc('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$
 await anon();
 const catalog=await rpc('select public.farmer_catalog() as result');
 assert.equal(catalog.shipping_fee,0);
-assert.deepEqual(catalog.products.map(p=>p.price),[12000,22000,18000]);
+assert.deepEqual(catalog.products.map(p=>p.price),[12000,22000,22000]);
 assert.equal((await rpc(`select public.farmer_quote('hopungmi-5kg',3,'goguma') as result`)).total,59400);
 for(const [product,qty,discount,total] of [['hopungmi-2kg',1,1200,10800],['hopungmi-5kg',1,2200,19800],['hopungmi-2kg',3,3600,32400],['hopungmi-5kg',3,6600,59400]]) {
  const q=await rpc('select public.farmer_quote($1,$2,$3) as result',[product,qty,'GOGUMA']);assert.equal(q.discount_amount,discount);assert.equal(q.discount_percent,10);assert.equal(q.total,total);assert.equal(q.shipping_fee,0);
@@ -285,6 +285,8 @@ await verifyParcels({db,rpc,admin,anon,expectError});
 
 const {verifyReviews}=await import('./reviews.mjs');
 await verifyReviews({db,rpc,admin,anon,expectError});
+const {verifyGiftCouponUses}=await import('./gift-coupon-uses.mjs');
+await verifyGiftCouponUses({db,rpc,admin,anon,expectError});
 // Summary totals cover all orders, not just the current page or paid sales.
 await admin();
 const beforeBoxes=await rpc('select public.farmer_admin_summary() as result');
@@ -297,7 +299,12 @@ await db.exec(`reset role;begin;
   ('hopungmi-2kg',3,'confirmed','sale',false),('hopungmi-5kg',4,'confirmed','sale',false),
   ('hopungmi-5kg',2,'confirmed','gift',false),('hopungmi-5kg-pickup',1,'confirmed','gift',false),
   ('hopungmi-2kg',9,'cancelled','sale',false),('hopungmi-5kg',6,'shipped','sale',false),
-  ('hopungmi-2kg',7,'cancelled','sale',true)) t(sku,qty,status,kind,deleted)
+  ('hopungmi-2kg',7,'cancelled','sale',true),
+  ('hopungmi-2kg',2,'pending','sale',false),('hopungmi-5kg',3,'pending','sale',false),
+  ('hopungmi-2kg',4,'shipped','sale',false),('hopungmi-5kg-pickup',2,'shipped','gift',false),
+  ('hopungmi-2kg',1,'shipped_unpaid','sale',false),('hopungmi-5kg',3,'shipped_unpaid','sale',false),
+  ('hopungmi-2kg',3,'delivered','sale',false),('hopungmi-5kg',5,'delivered','sale',false),
+  ('hopungmi-5kg-pickup',2,'delivered','gift',false)) t(sku,qty,status,kind,deleted)
  join public.farmer_products p on p.id=t.sku;`);
 await admin();
 const afterBoxes=await rpc('select public.farmer_admin_summary() as result');
@@ -305,9 +312,20 @@ assert.equal(afterBoxes.confirmed_2kg_boxes-beforeBoxes.confirmed_2kg_boxes,3);
 assert.equal(afterBoxes.confirmed_5kg_boxes-beforeBoxes.confirmed_5kg_boxes,7);
 assert.equal(afterBoxes.confirmed-beforeBoxes.confirmed,4);
 assert.equal(afterBoxes.confirmed_kg-beforeBoxes.confirmed_kg,41);
+for (const [stage,boxes2,boxes5,orders,kg] of [
+ ['pending',2,3,2,19],['confirmed',3,7,4,41],['shipped',4,8,3,48],
+ ['shipped_unpaid',1,3,2,17],['delivered',3,7,3,41]]) {
+ assert.equal(afterBoxes[stage+'_2kg_boxes']-beforeBoxes[stage+'_2kg_boxes'],boxes2);
+ assert.equal(afterBoxes[stage+'_5kg_boxes']-beforeBoxes[stage+'_5kg_boxes'],boxes5);
+ assert.equal(afterBoxes[stage+'_boxes']-beforeBoxes[stage+'_boxes'],boxes2+boxes5);
+ assert.equal(afterBoxes[stage]-beforeBoxes[stage],orders);
+ assert.equal(afterBoxes[stage+'_kg']-beforeBoxes[stage+'_kg'],kg);
+}
 assert.equal(afterBoxes.available_kg,beforeBoxes.available_kg);
 await db.exec('rollback;');
-console.log('PASS: confirmed box totals count quantities, gifts and pickup; exclude other statuses and deleted orders; preserve stock.');
+console.log('PASS: all five stage box totals count quantities and sizes, including gifts/pickup; exclude cancelled/deleted; preserve stock.');
+const {verifyUnpaidShipment}=await import('./unpaid-shipment.mjs');
+await verifyUnpaidShipment({db,rpc,admin,anon,expectError});
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 await expectError(()=>bulk(confirmedPayload,'confirmed'),'관리자 권한');

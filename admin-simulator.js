@@ -82,7 +82,7 @@
    $('sim-expense').textContent=money(expense);$('sim-income').textContent=money(income);$('sim-stock').textContent=number(availableKg)+'kg';$('sim-updated').textContent=year+'년 장부 · '+new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
    for(const c of report.categories)$('sim-categories').append(node('span',c.category+' '+money(c.amount)));
    if(!report.categories.length)$('sim-categories').append(node('span','아직 기록한 지출이 없습니다.'));
-   $('sim-baseline-note').textContent=`${year}년 장부 지출과 기존 확정 주문의 미기록 택배·상자비 추정을 포함합니다. 방문 수령은 상자비만 적용하며, 장부에 기록한 배송비·포장비는 추정액에서 차감합니다. 기존 수입에는 입금 확인·배송 중·배송 완료인 일반 주문 수입 ${money(s.order_income)}과 추가 수입 ${money(s.manual_income)}을 포함합니다. 현재 입금 대기 ${number(inventory.pending)}건은 재고에서 아직 차감되지 않았습니다.`;
+   $('sim-baseline-note').textContent=`${year}년 장부 지출과 기존 확정 주문의 미기록 택배·상자비 추정을 포함합니다. 방문 수령은 상자비만 적용하며, 장부에 기록한 배송비·포장비는 추정액에서 차감합니다. 기존 수입에는 입금 확인·배송 중·배송 완료인 일반 주문 수입 ${money(s.order_income)}과 추가 수입 ${money(s.manual_income)}을 포함합니다. 현재 입금 대기 ${number(inventory.pending)}건은 재고에서 아직 차감되지 않았습니다. 미수 발송 ${number(inventory.shipped_unpaid||0)}건은 재고와 발송 비용에 포함되며 수입에서 제외합니다.`;
    if(!initialized){fillStock();resetPrices();initialized=true;}
    $('sim-data').hidden=false;message('');
   }catch(e){if(ticket===epoch){hideData();message(e.message,true);}}

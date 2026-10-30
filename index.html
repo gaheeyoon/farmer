@@ -122,6 +122,7 @@
 
     .tmi-invitation{background:#eee7df;border-block:1px solid var(--line);padding:55px 0}.tmi-invitation-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:35px;align-items:center}.tmi-invitation h2{font-size:46px;letter-spacing:-2px;color:var(--purple);margin:13px 0}.tmi-invitation p:not(.eyebrow){font-size:14px;line-height:1.85;color:var(--muted)}.tmi-invitation a{display:inline-flex;gap:35px;align-items:center;color:var(--purple);font-size:13px;font-weight:700;text-decoration:none;border-bottom:1px solid var(--purple);padding:8px 0;margin-top:20px}.tmi-invitation-art{position:relative;border:1px solid #63395120;border-radius:50%;aspect-ratio:1;width:240px;max-width:100%;justify-self:center;display:grid;place-items:center}.tmi-invitation-art img{width:63%;height:95%;object-fit:contain;transform:rotate(8deg)}.tmi-invitation-art span{position:absolute;left:-30px;top:22px;font:9px/2 Georgia,serif;letter-spacing:.1em;color:var(--purple);background:#eee7df;padding:7px}.footer-extra-links{display:inline-flex;gap:25px}@media(max-width:1050px){.header .nav{gap:20px}}@media(max-width:760px){.header .nav-tmi{display:none}.tmi-invitation{padding:40px 0}.tmi-invitation-grid{grid-template-columns:1fr;gap:30px}.tmi-invitation h2{font-size:36px}.tmi-invitation p:not(.eyebrow){font-size:13px}.tmi-invitation-art{width:180px;justify-self:end;margin-right:10px}.footer-extra-links{gap:20px}}
 
+.pickup-choice{margin:0 0 22px}.pickup-choice small{font-size:12px;font-weight:400;color:var(--muted)}
 .pickup-info{padding:18px 20px;margin:0 0 22px;border:1px solid #c8ccb3;border-radius:9px;background:#edf0e1;color:#4e6143}.pickup-info strong{font-size:13px}.pickup-info p{font-size:14px;line-height:1.9;margin:8px 0}.pickup-info small{font-size:11px;color:#6a765e}
 </style>
 <link rel="stylesheet" href="site-navigation.css?v=20261019-larger-menu"><link rel="stylesheet" href="site-footer.css?v=20261019-1"><link rel="stylesheet" href="order-hub.css?v=20261019-1"><link rel="stylesheet" href="bank-transfer.css?v=20261019-3"><link rel="stylesheet" href="reviews.css?v=20261024-1"></head>
@@ -194,6 +195,7 @@
   <div class="delivery-toolbar"><button class="text-button" type="button" data-copy>주문자와 같아요</button><button class="text-button remove-delivery" type="button" data-remove>이 항목 삭제</button></div>
   <div class="form-row product-row"><div class="field"><label data-label="product_id">상품 / 중량 *</label><select data-field="product_id" required></select><p class="error" data-error="product_id"></p></div><div class="field"><label data-label="quantity">수량 *</label><input data-field="quantity" type="number" inputmode="numeric" min="1" max="99" step="1" value="1" required><p class="error" data-error="quantity"></p></div></div>
   <div class="form-row"><div class="field"><label data-label="recipient_name">받는 분 성함 *</label><input data-field="recipient_name" maxlength="40" autocomplete="name" required><p class="error" data-error="recipient_name"></p></div><div class="field"><label data-label="recipient_phone">받는 분 연락처 *</label><input data-field="recipient_phone" type="tel" inputmode="tel" data-phone maxlength="20" autocomplete="tel" placeholder="010-1234-5678" required><p class="error" data-error="recipient_phone"></p></div></div>
+  <label class="check-label pickup-choice" data-pickup-label><input type="checkbox" data-pickup-toggle><span>방문 수령 <small>상품 가격은 동일합니다.</small></span></label>
   <aside class="pickup-info" data-pickup-info hidden><strong>방문 수령 장소</strong><p>원북면 원이로 804-59<br>홍세환 소셜라운지</p><small>방문 일정은 주문 후 안내해 드립니다.</small></aside><div data-shipping-fields>
   <div class="field"><label data-label="postal_code">우편번호 *</label><div class="postcode-entry"><input data-field="postal_code" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="주소 검색" readonly required><button class="button secondary" data-search type="button">주소 검색</button></div><p class="error" data-error="postal_code"></p></div>
   <div class="postcode-search" data-search-panel hidden><div class="search-heading"><strong>우편번호 · 주소 검색</strong><button class="text-button" type="button" data-close-search>검색 닫기</button></div><p class="hint" data-search-status role="status"></p><div data-postcode-embed></div></div>
@@ -235,9 +237,9 @@
 <script src="reviews.js?v=20261024-1"></script>
 
   <script src="order-hub.js?v=20261019-1"></script>
-  <script src="customer.js?v=20261020-price-label"></script>
+  <script src="customer.js?v=20261026-pickup-unpaid1"></script>
   <script src="gift-common.js?v=20261019-3"></script>
-  <script src="gift-purchase.js?v=20261019-3"></script>
+  <script src="gift-purchase.js?v=20261026-recipientuses1"></script>
   <script src="gift-history.js?v=20261019-banklayout"></script>
   <script src="gift-receive.js?v=20261019-3"></script>
   <script>
