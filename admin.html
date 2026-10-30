@@ -671,7 +671,7 @@
             </div>
             <button class="button" type="submit">검색</button>
           </form>
-          <div class="actions" style="justify-content:flex-end;margin-bottom:16px"><button type="button" class="button secondary" id="export-orders">엑셀 다운로드</button><button type="button" class="button secondary" id="export-courier" title="현재 검색 조건의 전체 주문을 택배사 양식의 10개 열로 다운로드">엑셀 다운로드(택배사용)</button><button type="button" class="button secondary" id="open-hanjin">송장 추가(한진)</button></div>
+          <div class="actions" style="justify-content:flex-end;margin-bottom:16px"><button type="button" class="button secondary" id="export-orders">주문 내역 (엑셀)</button><button type="button" class="button secondary" id="export-courier" title="현재 검색 조건의 전체 주문을 택배사 양식의 10개 열로 다운로드">택배 배송용 주문 내역 (엑셀)</button><button type="button" class="button secondary" id="open-hanjin">송장 추가 (한진)</button><button type="button" class="button secondary" id="export-sms" title="현재 검색 조건의 전체 주문을 받는 분 이름·연락처·송장번호 순서로 제목 행 없이 다운로드">문자 발송용 주문 내역 (엑셀)</button></div>
           <div class="bulk-toolbar" aria-label="선택 주문 일괄 처리">
             <strong id="selection-count" aria-live="polite">선택한 주문 0건 · 0kg</strong>
             <button type="button" class="button secondary" id="clear-selection" disabled>선택 해제</button>
@@ -973,7 +973,7 @@
       </form>
     </dialog>
     <dialog id="hanjin-dialog" aria-labelledby="hanjin-title" class="hanjin-dialog">
-      <div class="dialog-head"><h2 id="hanjin-title">송장 추가(한진)</h2><button type="button" class="close" data-hanjin-close aria-label="한진 송장 추가 닫기">×</button></div>
+      <div class="dialog-head"><h2 id="hanjin-title">송장 추가 (한진)</h2><button type="button" class="close" data-hanjin-close aria-label="한진 송장 추가 닫기">×</button></div>
       <p class="notice">한진 배송현황 세부내역 엑셀을 선택한 뒤 연결할 주문을 확인해 주세요. 기존 송장은 덮어쓰지 않습니다.</p>
       <div class="field"><label for="hanjin-file">한진 엑셀 파일</label><input id="hanjin-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
       <p id="hanjin-status" class="message" role="status" aria-live="polite"></p>
@@ -994,8 +994,8 @@
     <script src="admin-parcels.js?v=20261021-parcels1"></script>
     <script src="admin-delivery.js?v=20261026-pickup-unpaid1"></script>
     <script src="hanjin-file.js?v=20261030-1"></script><script src="admin-hanjin.js?v=20261030-1"></script>
-    <script src="admin-xlsx.js?v=20261020-1"></script>
-    <script src="admin-order-tools.js?v=20261030-courier-export1"></script>
+    <script src="admin-xlsx.js?v=20261030-sms1"></script>
+    <script src="admin-order-tools.js?v=20261030-sms1"></script>
     <script src="admin-reviews.js?v=20261024-1"></script>
 <script src="admin.js?v=20261030-hanjin1"></script>
   </body>

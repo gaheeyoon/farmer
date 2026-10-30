@@ -9,8 +9,7 @@
   if(!ctx)return;const s=ctx.state(),orders=s.selected,deleted=s.filters.p_status==='deleted',blocked=!s.canStart||locked();
   $('archive-selected').textContent=pending?'처리 결과 다시 확인':deleted?'선택 주문 복원':'선택 주문 삭제';
   $('archive-selected').disabled=busy||exporting||(!pending&&(blocked||!orders.length||!orders.every(o=>deleted?!!o.deleted_at:eligible(o))));
-  $('export-orders').disabled=blocked;$('export-courier').disabled=blocked;
-  $('export-orders').textContent=exporting==='orders'?'엑셀 준비 중…':'엑셀 다운로드';$('export-courier').textContent=exporting==='courier'?'엑셀 준비 중…':'엑셀 다운로드(택배사용)';
+  for(const [kind,label]of [['orders','주문 내역 (엑셀)'],['courier','택배 배송용 주문 내역 (엑셀)'],['sms','문자 발송용 주문 내역 (엑셀)']]){const button=$('export-'+kind);button.disabled=blocked;button.textContent=exporting===kind?'엑셀 준비 중…':label;}
   $('archive-order').hidden=!current;$('archive-order').textContent=pending?'처리 결과 다시 확인':current?.deleted_at?'주문 복원':'주문 삭제';
   $('archive-order').disabled=busy||exporting||(!pending&&(blocked||!(current?.deleted_at||eligible(current))));
   document.querySelectorAll('[data-close="order-dialog"]').forEach(b=>{if(locked())b.disabled=true;else if(!window.FarmerDelivery.locked())b.disabled=false;});
@@ -39,15 +38,16 @@
  // Fixed courier template: never append internal/payment/tracking columns here.
  const courierHeaders=['주문번호','상품','수량','중량(kg)','받는 분','받는 분 연락처','우편번호','주소','상세주소','배송 메모'];
  const courierColumns=courierHeaders.map(title=>columns.find(column=>column.title===title));
+ const smsColumns=[['이름','recipient_name',18],['연락처','recipient_phone',20],['송장번호','tracking_number',26]].map(([title,key,width])=>({title,width,value:o=>o[key]??''}));
  async function download(kind='orders'){
   const s=ctx.state();if(!s.canStart||locked())return;const ticket=epoch,filters={...s.filters};exporting=kind;ctx.changed();sync();tell('현재 검색 조건의 전체 주문을 준비하고 있습니다.');
   try{const result=await api.admin('farmer_admin_export_orders',filters);if(ticket!==epoch)return;
    if(!Array.isArray(result?.orders)||result.orders.length!==result.total)throw Error('전체 주문을 확인하지 못했습니다. 다시 시도해 주세요.');
    if(!result.total){tell('조건에 맞는 주문이 없습니다.');return;}
    const rows=window.FarmerParcels.exportRows(result.orders);
-   const blob=window.FarmerXlsx.build(kind==='courier'?courierColumns:columns,rows),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`고구맙습니다_${kind==='courier'?'택배사용':'주문내역'}_${dt(result.exported_at||new Date()).replace(/[^0-9]/g,'')}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell(`${result.total}건의 주문을 ${rows.length}상자 · ${rows.length}행으로 내려받았습니다. 연락처·주소가 포함되어 있으니 안전하게 보관해 주세요.`);
+   const blob=window.FarmerXlsx.build(kind==='sms'?smsColumns:kind==='courier'?courierColumns:columns,rows,{header:kind!=='sms'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`고구맙습니다_${kind==='sms'?'문자발송용':kind==='courier'?'택배사용':'주문내역'}_${dt(result.exported_at||new Date()).replace(/[^0-9]/g,'')}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell(`${result.total}건의 주문을 ${rows.length}상자 · ${rows.length}행으로 내려받았습니다. ${kind==='sms'?'받는 분의 이름·연락처·송장번호만 제목 행 없이 포함했습니다.':'연락처·주소가 포함되어 있으니 안전하게 보관해 주세요.'}`);
   }catch(e){if(ticket===epoch)tell(e.message,true);}finally{if(ticket===epoch){exporting=false;ctx.changed();sync();}}
  }
- function init(options){ctx=options;$('archive-selected').addEventListener('click',()=>archive());$('archive-order').addEventListener('click',()=>archive(true));$('export-orders').addEventListener('click',()=>download('orders'));$('export-courier').addEventListener('click',()=>download('courier'));$('order-dialog').addEventListener('cancel',e=>{if(locked())e.preventDefault();});$('order-dialog').addEventListener('close',()=>{current=null;});window.addEventListener('beforeunload',e=>{if(pending||busy){e.preventDefault();e.returnValue='';}});sync();}
+ function init(options){ctx=options;$('archive-selected').addEventListener('click',()=>archive());$('archive-order').addEventListener('click',()=>archive(true));for(const kind of ['orders','courier','sms'])$('export-'+kind).addEventListener('click',()=>download(kind));$('order-dialog').addEventListener('cancel',e=>{if(locked())e.preventDefault();});$('order-dialog').addEventListener('close',()=>{current=null;});window.addEventListener('beforeunload',e=>{if(pending||busy){e.preventDefault();e.returnValue='';}});sync();}
  window.FarmerOrderTools=Object.freeze({init,clear,setOrder,sync,locked});
 })();

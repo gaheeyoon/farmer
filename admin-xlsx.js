@@ -11,12 +11,12 @@
   return new Blob([...chunks,...central,bytes(22,[[0,0x06054b50,4],[8,files.length,2],[10,files.length,2],[12,total,4],[16,offset,4]])],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
  }
  const colName=n=>{let s='';for(n++;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;};
- function build(columns,rows){
+ function build(columns,rows,{header=true}={}){
   const textCell=(ref,v,style=0)=>`<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
-  const last=colName(columns.length-1),range=`A1:${last}${rows.length+1}`;
-  let sheet=`<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="${range}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${columns.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.width||20}" customWidth="1"/>`).join('')}</cols><sheetData><row r="1">${columns.map((c,i)=>textCell(colName(i)+'1',c.title,1)).join('')}</row>`;
-  rows.forEach((row,index)=>{const n=index+2;sheet+=`<row r="${n}">`+columns.map((c,i)=>{const value=c.value(row),ref=colName(i)+n;return c.number&&typeof value==='number'&&Number.isFinite(value)?`<c r="${ref}" s="${c.decimal?3:2}"><v>${value}</v></c>`:textCell(ref,value);}).join('')+'</row>';});
-  sheet+=`</sheetData><autoFilter ref="${range}"/></worksheet>`;
+  const last=colName(columns.length-1),range=`A1:${last}${Math.max(1,rows.length+Number(header))}`;
+  let sheet=`<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="${range}"/><sheetViews><sheetView workbookViewId="0">${header?'<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>':''}</sheetView></sheetViews><cols>${columns.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.width||20}" customWidth="1"/>`).join('')}</cols><sheetData>${header?`<row r="1">${columns.map((c,i)=>textCell(colName(i)+'1',c.title,1)).join('')}</row>`:''}`;
+  rows.forEach((row,index)=>{const n=index+1+Number(header);sheet+=`<row r="${n}">`+columns.map((c,i)=>{const value=c.value(row),ref=colName(i)+n;return c.number&&typeof value==='number'&&Number.isFinite(value)?`<c r="${ref}" s="${c.decimal?3:2}"><v>${value}</v></c>`:textCell(ref,value);}).join('')+'</row>';});
+  sheet+=`</sheetData>${header?`<autoFilter ref="${range}"/>`:''}</worksheet>`;
   return zip([
    ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'],
    ['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
