@@ -38,7 +38,7 @@
   const canMove=(o,status)=>({pending:['confirmed','shipped_unpaid'],confirmed:['shipped','shipped_unpaid'],shipped:['delivered','shipped_unpaid'],shipped_unpaid:['shipped']}[o.status]||[]).includes(status) && (status!=='shipped_unpaid'||o.order_kind==='sale'&&Number(o.total)>0&&!o.is_link_gift&&!o.awaiting_address);
   const needsShipment=(o,status)=>['shipped','shipped_unpaid'].includes(status)&&['pending','confirmed'].includes(o.status);
   let bulkPending = null, bulkBusy = false;
-  const locked = () => loading || bulkBusy || !!bulkPending || window.FarmerDelivery.locked() || window.FarmerOrderTools.locked();
+  const locked = () => loading || bulkBusy || !!bulkPending || window.FarmerDelivery.locked() || window.FarmerOrderTools.locked() || window.FarmerHanjin.locked();
   const selectedOrders = () => state.orders.filter(o => selected.has(o.id));
   const requestId = (payload) => {
     const key = JSON.stringify(payload);
@@ -63,6 +63,7 @@
   function clearPrivateView() {
     version++;
     window.FarmerOrderTools.clear();
+    window.FarmerHanjin.clear();
     window.FarmerDelivery.clear();
     window.FarmerGifts.clear();
     window.FarmerGiftLinks.clear();
@@ -139,7 +140,7 @@
   }
   function updateControls() {
     const busy = locked();
-    document.querySelectorAll("[data-stage], #filter-form input, #filter-form select, #filter-form button, .order-link, #refresh, #open-stock, #open-gift, #open-gift-links").forEach(el => el.disabled = busy);
+    document.querySelectorAll("[data-stage], #filter-form input, #filter-form select, #filter-form button, .order-link, #refresh, #open-stock, #open-gift, #open-gift-links, #open-hanjin").forEach(el => el.disabled = busy);
     $("previous").disabled = busy || state.offset === 0;
     $("next").disabled = busy || state.offset + 50 >= state.total;
     const eligible = state.orders.filter(canSelect);
@@ -619,6 +620,7 @@
     try {await load();if (currentVersion === version) message("dashboard-message", "배송 정보를 수정했습니다.");}
     catch {if (currentVersion === version) message("dashboard-message", "배송 정보는 저장했습니다. 목록을 새로고침해 주세요.");}
   });
+  window.FarmerHanjin.init({canStart:()=>!locked(),changed:()=>renderSelection(),saved:async text=>{const ticket=version;try{await load();if(ticket===version)message('order-tools-message',text);}catch{if(ticket===version)message('order-tools-message',text+' 목록을 새로고침해 주세요.');}}});
   window.FarmerOrderTools.init({
     state:()=>({selected:selectedOrders(),canStart:!locked(),filters:{p_status:$("status-filter").value,p_search:$("search").value.trim(),p_kind:$("kind-filter").value}}),
     changed:()=>renderSelection(),

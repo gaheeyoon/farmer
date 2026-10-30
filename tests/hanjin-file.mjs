@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+const context={TextEncoder,TextDecoder,Uint8Array,ArrayBuffer,Buffer,console};context.window=context;vm.createContext(context);
+vm.runInContext(await readFile(new URL('../vendor/xlsx-0.20.3.full.min.js',import.meta.url),'utf8'),context);
+vm.runInContext(await readFile(new URL('../hanjin-file.js',import.meta.url),'utf8'),context);
+assert.equal(context.XLSX.version,'0.20.3');
+const wb=rows=>{const w=context.XLSX.utils.book_new();context.XLSX.utils.book_append_sheet(w,context.XLSX.utils.aoa_to_sheet(rows),'종합 배송현황');return w;};
+const header=Array(36).fill('');Object.assign(header,{0:'고객번호',5:'운송장번호',6:'수량',11:'고객출고번호',12:'품목명',17:'송하인',23:'수하인'});
+const sub=Array(36).fill('');Object.assign(sub,{17:'이름',18:'연락처',21:'우편번호',22:'주소',23:'이름',24:'연락처',27:'우편번호',28:'주소'});
+const parcel=Array(36).fill('');Object.assign(parcel,{0:'S205032',5:'046361537634',6:1,11:'GF-00000001',12:'호풍미 5kg',17:'송하인',18:'0109999****',23:'받는*',24:'0101234****',27:'04524',28:'서울 중구 테스트로 123'});
+let result=context.FarmerHanjinFile.parse(wb([header,sub,parcel]));assert.equal(result.length,1);assert.equal(result[0].row,3);assert.equal(result[0].tracking,'046361537634');assert.equal(result[0].phone,'0101234****');assert.equal(result[0].name,'받는*');assert.equal(result[0].postal,'04524');assert.equal(result[0].weight_grams,5000);assert.equal(result[0].order_number,'GF-00000001');
+assert.throws(()=>context.FarmerHanjinFile.parse(wb([['고객번호']])));
+assert.throws(()=>context.FarmerHanjinFile.parse(wb([header,sub])),/운송장번호가 있는/);
+assert.throws(()=>context.FarmerHanjinFile.parse(wb([header,sub,...Array(501).fill(parcel)])),/500상자/);
+const noName=[...sub];noName[23]='';assert.throws(()=>context.FarmerHanjinFile.parse(wb([header,noName,parcel])));
+const flat=[['주문번호','운송장번호','상품','수량','받는 분','받는 분 연락처','우편번호','주소'],['GF-00000001','463615376346','호풍미 2kg',1,'구매자','0101234****','04524','서울 중구 테스트로 123']];result=context.FarmerHanjinFile.parse(wb(flat));assert.equal(result[0].weight_grams,2000);assert.equal(result[0].row,2);
+console.log('PASS: Hanjin two-header recipient fields, fixed version parser, flat columns, leading-zero waybills/postcodes, row numbers, reference IDs, product sizes, empty/invalid files and row limit.');

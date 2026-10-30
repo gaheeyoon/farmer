@@ -326,6 +326,8 @@ await db.exec('rollback;');
 console.log('PASS: all five stage box totals count quantities and sizes, including gifts/pickup; exclude cancelled/deleted; preserve stock.');
 const {verifyUnpaidShipment}=await import('./unpaid-shipment.mjs');
 await verifyUnpaidShipment({db,rpc,admin,anon,expectError});
+const {verifyHanjinImport}=await import('./hanjin-import.mjs');
+await verifyHanjinImport({db,rpc,admin,anon,expectError});
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 await expectError(()=>bulk(confirmedPayload,'confirmed'),'관리자 권한');

@@ -466,6 +466,11 @@
       .hidden-auth {
         display: none;
       }
+      .hanjin-dialog { width:min(1160px,calc(100% - 24px));max-width:1160px; }
+      .hanjin-dialog .table-wrap { max-height:440px;overflow:auto; }
+      .hanjin-dialog table { min-width:900px; }
+      .hanjin-dialog select { min-width:260px;max-width:340px; }
+      .hanjin-option { display:flex;align-items:center;gap:10px;margin-top:20px; }
       @media (min-width: 761px) and (max-width: 1100px) {
         .metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
       }
@@ -666,7 +671,7 @@
             </div>
             <button class="button" type="submit">검색</button>
           </form>
-          <div class="actions" style="justify-content:flex-end;margin-bottom:16px"><button type="button" class="button secondary" id="export-orders">엑셀 다운로드</button><button type="button" class="button secondary" id="export-courier" title="현재 검색 조건의 전체 주문을 택배사 양식의 10개 열로 다운로드">엑셀 다운로드(택배사용)</button></div>
+          <div class="actions" style="justify-content:flex-end;margin-bottom:16px"><button type="button" class="button secondary" id="export-orders">엑셀 다운로드</button><button type="button" class="button secondary" id="export-courier" title="현재 검색 조건의 전체 주문을 택배사 양식의 10개 열로 다운로드">엑셀 다운로드(택배사용)</button><button type="button" class="button secondary" id="open-hanjin">송장 추가(한진)</button></div>
           <div class="bulk-toolbar" aria-label="선택 주문 일괄 처리">
             <strong id="selection-count" aria-live="polite">선택한 주문 0건 · 0kg</strong>
             <button type="button" class="button secondary" id="clear-selection" disabled>선택 해제</button>
@@ -967,6 +972,16 @@
         <p class="message" id="stock-message" role="status"></p>
       </form>
     </dialog>
+    <dialog id="hanjin-dialog" aria-labelledby="hanjin-title" class="hanjin-dialog">
+      <div class="dialog-head"><h2 id="hanjin-title">송장 추가(한진)</h2><button type="button" class="close" data-hanjin-close aria-label="한진 송장 추가 닫기">×</button></div>
+      <p class="notice">한진 배송현황 세부내역 엑셀을 선택한 뒤 연결할 주문을 확인해 주세요. 기존 송장은 덮어쓰지 않습니다.</p>
+      <div class="field"><label for="hanjin-file">한진 엑셀 파일</label><input id="hanjin-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
+      <p id="hanjin-status" class="message" role="status" aria-live="polite"></p>
+      <section id="hanjin-preview" hidden><h3>주문 연결 확인</h3><p id="hanjin-count" class="message" aria-live="polite"></p><div class="table-wrap"><table><thead><tr><th>선택</th><th>엑셀 행</th><th>받는 분</th><th>송장번호</th><th>연결할 주문</th><th>확인 사항</th></tr></thead><tbody id="hanjin-rows"></tbody></table></div></section>
+      <label class="hanjin-option"><input type="checkbox" id="hanjin-mark-shipped" checked> 송장이 모두 입력되면 배송 중으로 변경</label>
+      <p class="sub">미입금 주문은 ‘배송 중 · 미입금’으로 처리합니다. 배송 완료 주문은 완료 상태를 유지합니다.</p>
+      <div class="actions" style="margin-top:20px"><button type="button" class="button secondary" data-hanjin-close>닫기</button><button type="button" class="button" id="hanjin-save" disabled>선택한 송장 등록</button></div>
+    </dialog>
     <dialog id="gift-links-dialog" aria-labelledby="gl-title"><div class="actions" style="justify-content:space-between"><h2 id="gl-title">선물 링크 관리</h2><button id="gl-close" class="button secondary" type="button">닫기</button></div><p class="notice">관리자는 모든 선물 링크를 확인하고 복사할 수 있습니다. 받는 분의 주소 등록은 입금 확인 후 가능하며, 주소 등록 전에는 발송할 수 없습니다. 기한이 지난 선물은 연장하거나 취소해 주세요. 취소하면 확보한 재고가 복구되며, 입금된 금액의 환불은 별도로 처리해야 합니다.</p><p id="gl-summary" class="message"></p><details><summary>무상 선물 링크 만들기</summary><form id="gl-form"><fieldset id="gl-fields"><div class="row"><div class="field"><label for="gl-sender">보내는 분 *</label><input id="gl-sender" required maxlength="40" value="홍세환"></div><div class="field"><label for="gl-recipient">받는 분 이름 또는 호칭 *</label><input id="gl-recipient" required maxlength="40"></div></div><div class="row"><div class="field"><label for="gl-product">상품 *</label><select id="gl-product" required></select></div><div class="field"><label for="gl-quantity">상자 수 *</label><input id="gl-quantity" type="number" required min="1" max="99" step="1" value="1"></div></div><div class="field"><label for="gl-text">선물 메시지</label><textarea id="gl-text" maxlength="300" rows="3"></textarea></div><div class="field"><label for="gl-days">주소 등록 기한 (일) *</label><input id="gl-days" type="number" min="1" max="90" value="30" required></div></fieldset><button id="gl-create" class="button" type="submit">무상 선물 링크 만들기</button></form></details><p id="gl-message" class="message" role="status"></p><button id="gl-retry" class="button" type="button" hidden>처리 결과 다시 확인</button><div class="actions" style="margin-top:20px"><button id="gl-refresh" class="button secondary" type="button">새로고침</button><a href="./#gift" class="button secondary" target="_blank" rel="noopener">선물 구매 페이지 (새 창)</a></div><div id="gl-rows"></div><div class="pagination"><button id="gl-prev" type="button" class="button secondary">이전</button><span id="gl-page"></span><button id="gl-next" type="button" class="button secondary">다음</button></div></dialog><footer class="farmer-footer" aria-label="판매자 정보"><div class="farmer-footer-inner"><div class="farmer-footer-top"><div><a class="farmer-footer-brand" href="./">어쩌다 농부</a><p class="farmer-footer-tagline">첫 번째 고구마, 고구맙습니다.</p></div><nav class="farmer-footer-links" aria-label="이용 정책"><a href="policies.html#terms">이용약관</a><a href="policies.html#privacy"><strong>개인정보처리방침</strong></a><a href="https://www.ftc.go.kr/bizCommPop.do?wrkr_no=7640202713" target="_blank" rel="noopener noreferrer">사업자정보 확인 <span class="farmer-footer-external" aria-hidden="true">↗</span><span class="farmer-footer-sr"> (새 창)</span></a></nav></div><dl class="farmer-footer-details"><div><dt>상호</dt><dd>홍세환소셜라운지</dd></div><div><dt>대표자</dt><dd>홍세환</dd></div><div><dt>사업자등록번호</dt><dd>764-02-02713</dd></div><div><dt>통신판매업 신고</dt><dd>2025-충남태안-0053</dd></div><div class="farmer-footer-address"><dt>사업장 주소</dt><dd>충청남도 태안군 원북면 원이로 804-59</dd></div><div><dt>고객 문의</dt><dd><a href="tel:01051285171">010-5128-5171</a></dd></div><div class="farmer-footer-email"><dt>이메일</dt><dd><a href="mailto:a5312559@gmail.com">a5312559@gmail.com</a><div class="farmer-footer-payment"><aside class="bank-transfer" data-bank-transfer aria-label="입금 계좌 안내"><div class="bank-transfer-row"><span class="bank-transfer-number">국민 697201-00-081099</span><button class="bank-transfer-copy" type="button" aria-label="은행과 계좌번호 복사">복사하기</button></div></aside></div></dd></div><div><dt>개인정보 보호책임자</dt><dd>윤가희 · <a href="tel:01051285171">010-5128-5171</a></dd></div></dl><div class="farmer-footer-bottom"><span>© 2026 홍세환소셜라운지</span><div><a href="admin.html">농부 관리실</a><a href="#top">처음으로 ↑</a></div></div></div></footer><script src="payment-config.js?v=20261019-bank"></script><script src="bank-transfer.js?v=20261019-3"></script>
     <script src="farmer-config.js"></script>
     <script src="farmer-api.js?v=20261018-session1"></script>
@@ -978,9 +993,10 @@
     <script src="admin-simulator.js?v=20261026-pickup-unpaid1"></script>
     <script src="admin-parcels.js?v=20261021-parcels1"></script>
     <script src="admin-delivery.js?v=20261026-pickup-unpaid1"></script>
+    <script src="hanjin-file.js?v=20261030-1"></script><script src="admin-hanjin.js?v=20261030-1"></script>
     <script src="admin-xlsx.js?v=20261020-1"></script>
     <script src="admin-order-tools.js?v=20261030-courier-export1"></script>
     <script src="admin-reviews.js?v=20261024-1"></script>
-<script src="admin.js?v=20261027-stage-boxes1"></script>
+<script src="admin.js?v=20261030-hanjin1"></script>
   </body>
 </html>
