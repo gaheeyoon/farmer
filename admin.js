@@ -4,17 +4,18 @@
     api = window.FarmerAPI, parcels=window.FarmerParcels;
   const statuses = {
     pending: "입금 대기",
-    confirmed: "입금 확인(배송 준비)",
+    confirmed: "입금 확인 (배송 준비)",
+    confirmed_waiting_address: "입금 확인 (주소 입력 대기)",
+    confirmed_ready: "입금 확인 (배송 준비)",
     shipped: "배송 중",
-    shipped_unpaid: "배송 중 · 미입금",
+    shipped_unpaid: "입금 대기",
     delivered: "배송 완료",
     cancelled: "취소",
   };
   const isPickup = o => o?.fulfillment_method === 'pickup' || o?.product_id === 'hopungmi-5kg-pickup' || String(o?.product_name || '').includes('방문 수령');
-  const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',shipped_unpaid:'미수 · 수령 대기',delivered:'수령 완료',cancelled:'취소'};
-  const stageLabel = (status,orders) => orders.length && orders.every(isPickup) ? pickupStatuses[status] : statuses[status];
+  const stageLabel = (status,orders) => status==='confirmed' ? (orders.every(o=>o.awaiting_address) ? statuses.confirmed_waiting_address : orders.some(o=>o.awaiting_address) ? '입금 확인' : statuses.confirmed_ready) : statuses[status];
   const freeGiftOwner = o => o.order_kind==='gift' ? o.gift_sponsor||'미지정' : Number(o.unit_price)>0&&Number(o.discount_amount)>=Number(o.unit_price) ? ({'고구맙습니다홍세환선물용':'홍세환','고구맙습니다윤가희선물용':'윤가희'})[o.discount_code]||'' : '';
-  const statusText = o => o.awaiting_address && o.status === "confirmed" ? "입금 확인 · 주소 입력 대기" : o.order_kind === "gift" && o.status === "confirmed" ? (isPickup(o) ? "수령 준비" : "배송 준비") : isPickup(o) ? pickupStatuses[o.status] : statuses[o.status];
+  const statusText = o => o.awaiting_address && o.status==='confirmed' ? statuses.confirmed_waiting_address : statuses[o.status];
   const number = (n) =>
     Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
   const date = (v) =>
@@ -35,7 +36,7 @@
   const selected = new Set();
   const canSelect = o => !!o;
   const nextStage = { pending: 'confirmed', confirmed: 'shipped', shipped: 'delivered', shipped_unpaid:'shipped' };
-  const canMove=(o,status)=>({pending:['confirmed','shipped_unpaid'],confirmed:['shipped','shipped_unpaid'],shipped:['delivered','shipped_unpaid'],shipped_unpaid:['shipped']}[o.status]||[]).includes(status) && (status!=='shipped_unpaid'||o.order_kind==='sale'&&Number(o.total)>0&&!o.is_link_gift&&!o.awaiting_address);
+  const canMove=(o,status)=>({pending:['confirmed'],confirmed:['shipped'],shipped:['delivered'],shipped_unpaid:['shipped']}[o.status]||[]).includes(status) && (status!=='shipped_unpaid'||o.order_kind==='sale'&&Number(o.total)>0&&!o.is_link_gift&&!o.awaiting_address);
   const needsShipment=(o,status)=>['shipped','shipped_unpaid'].includes(status)&&['pending','confirmed'].includes(o.status);
   let bulkPending = null, bulkBusy = false;
   const locked = () => loading || bulkBusy || !!bulkPending || window.FarmerDelivery.locked() || window.FarmerOrderTools.locked() || window.FarmerHanjin.locked();
@@ -89,11 +90,11 @@
   function renderSummary() {
     const s = state.summary;
     $("stock-value").textContent = number(s.available_kg) + " kg";
-    for (const stage of ['pending', 'confirmed', 'shipped', 'shipped_unpaid', 'delivered']) {
+    for (const stage of ['pending', 'confirmed_waiting_address', 'confirmed_ready', 'shipped', 'delivered']) {
       const weight = node('span', ' · ' + (Number.isFinite(Number(s[stage + '_kg'])) && s[stage + '_kg'] !== null ? number(s[stage + '_kg']) + 'kg' : '—kg'), 'metric-weight');
       $(stage + '-value').replaceChildren(document.createTextNode(number(s[stage]) + '건'), weight);
     }
-    const boxLabels={pending:'박스 총 ',confirmed:'출고할 박스 총 ',shipped:'발송한 박스 총 ',shipped_unpaid:'발송한 박스 총 ',delivered:'전달한 박스 총 '};
+    const boxLabels={pending:'박스 총 ',confirmed_waiting_address:'박스 총 ',confirmed_ready:'출고할 박스 총 ',shipped:'발송한 박스 총 ',delivered:'전달한 박스 총 '};
     for (const stage of Object.keys(boxLabels)) {
       const boxCount=key=>s[key]!==null && s[key]!==undefined && Number.isFinite(Number(s[key])) ? Number(s[key]) : null;
       const boxes2=boxCount(stage+'_2kg_boxes'),boxes5=boxCount(stage+'_5kg_boxes'),total=boxCount(stage+'_boxes');
@@ -415,30 +416,28 @@
     ];
     for (const [key, value] of details)
       $("order-details").append(node("dt", key), node("dd", value));
-    $("shipping-fields").hidden = !(["pending","confirmed"].includes(o.status)) || isPickup(o) || o.awaiting_address;
+    $("shipping-fields").hidden = o.status!=="confirmed" || isPickup(o) || o.awaiting_address;
     $("carrier").value = isPickup(o) ? "방문 수령" : o.carrier;
     parcels.mount($('tracking'),o,'tracking');
     $("order-actions").replaceChildren();
     const choices =
       {
         pending: [
-          ["confirmed", "입금 확인(배송 준비)"],
-          ["shipped_unpaid", "미입금 상태로 발송"],
+          ["confirmed", o.awaiting_address ? statuses.confirmed_waiting_address : statuses.confirmed_ready],
           ["cancelled", "주문 취소"],
         ],
         confirmed: [
           ["shipped", "발송 처리"],
-          ["shipped_unpaid", "미입금 상태로 발송"],
           ["cancelled", "주문 취소"],
         ],
-        shipped: isPickup(o) ? [["delivered","수령 완료 처리"],["cancelled","주문 취소"]] : [["delivered", "배송 완료 처리"],["shipped_unpaid","미입금으로 정정"]],
+        shipped: isPickup(o) ? [["delivered","수령 완료 처리"],["cancelled","주문 취소"]] : [["delivered", "배송 완료 처리"]],
         shipped_unpaid:[["shipped","입금 확인(발송 상태 유지)"]],
       }[o.status] || [];
     for (const [status, label] of choices) {
       if (['shipped','shipped_unpaid'].includes(status) && o.awaiting_address || status==='shipped_unpaid'&&!canMove(o,status)) continue;
       const b = node(
         "button",
-        (isPickup(o) && status !== "cancelled" && status !== "shipped_unpaid" && o.status !== "shipped_unpaid" ? ({confirmed:"입금 확인(수령 준비)",shipped:"수령 대기 처리",delivered:"수령 완료 처리"})[status] : label),
+        (isPickup(o) && ["shipped","delivered"].includes(status) ? ({shipped:"수령 대기 처리",delivered:"수령 완료 처리"})[status] : label),
         "button" + (status === "cancelled" ? " danger" : ""),
       );
       b.type = "button";
@@ -549,7 +548,7 @@
   window.FarmerGifts.init(async result => {
     const currentVersion = version;
     $("kind-filter").value = "gift";
-    $("status-filter").value = "confirmed";
+    $("status-filter").value = "confirmed_ready";
     $("search").value = "";
     state.offset = 0;
     const saved = `선물 주문 ${result.orders.length}건을 등록하고 재고 ${number(result.weight_grams / 1000)}kg을 차감했습니다.`;

@@ -24,7 +24,7 @@
   for(const r of preview.rows){
    const tr=node('tr');tr.dataset.hanjinRow=String(r.row);const box=document.createElement('input');box.type='checkbox';box.setAttribute('aria-label',`${r.row}행 송장 등록 선택`);
    const select=document.createElement('select');select.setAttribute('aria-label',`${r.row}행 연결할 주문`);const placeholder=node('option',r.reason||'주문을 선택해 주세요');placeholder.value='';select.append(placeholder);
-   for(const c of r.candidates){const state=({pending:'입금 대기',confirmed:'배송 준비',shipped:'배송 중',shipped_unpaid:'배송 중·미입금',delivered:'배송 완료'})[c.status]||c.status;const option=node('option',`${c.order_number} · ${c.recipient_name} · ${c.quantity}상자 · ${state} · 주문자 ${c.customer_name}${c.existing?' · 등록된 송장':''}`);option.value=c.id;select.append(option);}
+   for(const c of r.candidates){const state=({pending:'입금 대기',confirmed:'입금 확인 (배송 준비)',shipped:'배송 중',shipped_unpaid:'입금 대기',delivered:'배송 완료'})[c.status]||c.status;const option=node('option',`${c.order_number} · ${c.recipient_name} · ${c.quantity}상자 · ${state} · 주문자 ${c.customer_name}${c.existing?' · 등록된 송장':''}`);option.value=c.id;select.append(option);}
    if(r.candidates.length===1&&!r.reason){select.value=r.candidates[0].id;box.checked=true;}
    const blocked=!!r.reason;box.dataset.blocked=String(blocked);select.dataset.blocked=String(blocked);
    for(const el of [box,node('span',String(r.row)),node('span',r.name||'—'),node('span',r.tracking),select]){const td=node('td');td.append(el);tr.append(td);}
