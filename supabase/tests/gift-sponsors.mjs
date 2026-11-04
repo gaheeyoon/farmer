@@ -47,4 +47,24 @@ export async function verifyGiftSponsors({db,rpc,admin,anon,expectError}){
  assert.equal(person(await summary(2026),'윤가희&홍세환').boxes,jointRow.boxes-2);
  await db.exec('rollback;');
  console.log('PASS: joint gift sponsor storage/export, separate counts, shipping/pickup split, no double-counting or duplicate stock allocation, and cancellation.');
+ // Donation is a fourth, independent sponsor with normal stock/cost accounting.
+ await db.exec('reset role;begin;');await admin();
+ const donationBefore=await summary(2026),donationStock=(await rpc('select public.farmer_admin_summary() as result')).available_kg;
+ const donationId=randomUUID(),donationItems=[data('기부',2),{...data('기부',1,'hopungmi-3kg'),fulfillment_method:'pickup',postal_code:'',address:''}];
+ const donationReceipt=await gift(donationItems,donationId);assert.deepEqual(await gift(donationItems,donationId),donationReceipt);
+ const donationAfter=await summary(2026),donationRow=person(donationAfter,'기부');
+ assert.equal(donationRow.boxes-person(donationBefore,'기부').boxes,3);
+ assert.equal(donationRow.kg-person(donationBefore,'기부').kg,13);
+ assert.equal(donationRow.shipping_qty5-person(donationBefore,'기부').shipping_qty5,2);
+ assert.equal(donationRow.pickup_qty3-person(donationBefore,'기부').pickup_qty3,1);
+ for(const sponsor of ['윤가희','홍세환','윤가희&홍세환','미지정'])assert.deepEqual(person(donationAfter,sponsor),person(donationBefore,sponsor));
+ assert.equal(donationAfter.totals.boxes-donationBefore.totals.boxes,3);
+ assert.equal((await rpc('select public.farmer_admin_summary() as result')).available_kg,donationStock-13);
+ const donationOrders=(await orders()).orders.filter(o=>donationReceipt.orders.some(r=>r.order_number===o.order_number));
+ assert.equal(donationOrders.length,2);assert.ok(donationOrders.every(o=>o.gift_sponsor==='기부'&&o.total===0));
+ await change(donationOrders.find(o=>o.product_id==='hopungmi-5kg'),'cancelled');
+ assert.equal(person(await summary(2026),'기부').boxes,donationRow.boxes-2);
+ await db.exec('rollback;');
+ console.log('PASS: donation sponsor storage, separate counts, shipping/pickup split, exact retries, stock allocation and cancellation.');
+
 }
