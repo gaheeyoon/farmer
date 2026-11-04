@@ -5,7 +5,7 @@
  const keys=['recipient_name','recipient_phone','postal_code','address','address_detail','memo','carrier'];
  const input=k=>$('edit-delivery-'+k),form=$('delivery-edit-form');
  let order=null,editing=false,dirty=false,busy=false,pending=null,epoch=0,onSaved=async()=>{};
- const pickup=o=>o?.product_id==='hopungmi-5kg-pickup'||o?.fulfillment_method==='pickup';
+ const pickup=o=>o?.pickup_requested===true||String(o?.product_id||'').endsWith('-pickup')||o?.fulfillment_method==='pickup';
  const frozen=()=>busy||!!pending;
  const tell=(text,error=false)=>{$('delivery-edit-status').textContent=text;$('delivery-edit-status').classList.toggle('error',error);};
  function sync(){

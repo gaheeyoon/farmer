@@ -24,11 +24,10 @@
     lookupQuery = null,
     lookupOffset = null,
     lookupBusy = false;
-  const pickupId = 'hopungmi-5kg-pickup';
   const pickupPlace = '원북면 원이로 804-59 (홍세환 소셜라운지)';
-  const isPickup = o => o?.fulfillment_method === 'pickup' || o?.product_id === pickupId || o?.id === pickupId || String(o?.product_name || '').includes('방문 수령');
-  const pickupProduct = id => id === pickupId || isPickup(products.find(p => p.id === id));
-  const pickupStatuses = {pending:'입금 대기',confirmed:'입금 확인(수령 준비)',shipped:'수령 대기',shipped_unpaid:'미수 · 수령 대기',delivered:'수령 완료',cancelled:'주문 취소'};
+  const isPickup = o => o?.pickup_requested === true || o?.fulfillment_method === 'pickup' || String(o?.product_id || o?.id || '').endsWith('-pickup') || String(o?.product_name || '').includes('방문 수령');
+  const pickupStatuses={pending:'입금 대기',confirmed:'입금 확인 (수령 준비)',shipped:'수령 대기',shipped_unpaid:'입금 대기',delivered:'수령 완료',cancelled:'주문 취소'};
+  const cardPickup = card => card.querySelector('[data-pickup-toggle]').checked;
   const requests = new Map();
   const message = (id, text) => {
     $(id).textContent = text;
@@ -82,14 +81,14 @@
   }
   const deliveries = () => cards().map(c => {
     const d = Object.fromEntries([...c.querySelectorAll('[data-field]')].map(el => [el.dataset.field, el.dataset.field === 'quantity' ? Number(el.value) : el.value.trim()]));
-    if (pickupProduct(d.product_id)) Object.assign(d, {postal_code:'',address:'',address_detail:''});
+    d.fulfillment_method=cardPickup(c)?'pickup':'shipping';
+    if (cardPickup(c)) Object.assign(d, {postal_code:'',address:'',address_detail:''});
     return d;
   });
   function syncFulfillment(card) {
-    const pickup = pickupProduct(field(card, 'product_id').value);
+    const pickup = cardPickup(card);
     const toggle=card.querySelector('[data-pickup-toggle]');
-    toggle.checked=pickup;
-    toggle.disabled=locked || !products.some(p=>p.id===pickupId&&p.available) || !['hopungmi-5kg',pickupId].includes(field(card,'product_id').value);
+    toggle.disabled=locked;
     card.dataset.fulfillment = pickup ? 'pickup' : 'shipping';
     card.querySelector('[data-shipping-fields]').hidden = pickup;
     card.querySelector('[data-pickup-info]').hidden = !pickup;
@@ -103,7 +102,7 @@
     if(pickup) closeSearch(card);
   }
   const quoteItems = () =>
-    deliveries().map(({ product_id, quantity }) => ({ product_id, quantity }));
+    deliveries().map(({ product_id, quantity, fulfillment_method }) => ({ product_id, quantity, fulfillment_method }));
   function totals(q) {
     const lines = quoteItems(),
       valid = lines.every(
@@ -129,11 +128,11 @@
             ? lines.reduce((sum, d) => sum + Math.floor((products.find((p) => p.id === d.product_id)?.price || 0) * d.quantity * discount.percent / 100), 0)
             : Math.min(subtotal, discount.amount)
           : 0),
-      fee = q?.shipping_fee ?? lines.filter(d => !pickupProduct(d.product_id)).length * shipping;
+      fee = q?.shipping_fee ?? lines.filter(d => d.fulfillment_method!=='pickup').length * shipping;
     displayedTotal = q?.total ?? subtotal - amount + fee;
     message("order-payment-note", valid && subtotal > 0 && displayedTotal === 0 ? "할인 적용 후 금액이 0원이면 별도 입금 없이 접수됩니다." : "입금까지 완료해야 주문이 완료됩니다.");
     message("subtotal-amount", valid ? money(subtotal) : "—");
-    const shipped = lines.filter(d => !pickupProduct(d.product_id)).length;
+    const shipped = lines.filter(d => d.fulfillment_method!=='pickup').length;
     message('shipping-label', shipped ? `배송비 · ${shipped}곳` : '수령 방법');
     message('shipping-amount', shipped ? (fee === 0 ? '무료' : money(fee)) : '방문 수령');
     $("discount-line").hidden = !discount;
@@ -173,7 +172,7 @@
         `받는 분 ${i + 1} 주소 검색`,
       );
     });
-    const picks = cards().filter(c => pickupProduct(field(c,'product_id').value)).length;
+    const picks = cards().filter(c => cardPickup(c)).length;
     message('delivery-count', picks ? (picks === cards().length ? `방문 수령 ${picks}건` : `택배 ${cards().length-picks}건 · 방문 수령 ${picks}건`) : `배송지 ${cards().length}곳`);
     $("add-delivery").disabled = locked || cards().length >= 20;
     totals();
@@ -184,9 +183,9 @@
       ...products.map((p) => {
         const o = document.createElement("option");
         o.value = p.id;
-        o.hidden = p.id === pickupId;
+        o.hidden = isPickup(p);
         o.textContent =
-          (p.id===pickupId ? '호풍미 5kg' : p.name) + " · " + money(p.price) + (p.available ? "" : " · 품절");
+          (isPickup(p) ? p.name.replace(/\s*방문\s*수령/,'') : p.name) + " · " + money(p.price) + (p.available ? "" : " · 품절");
         o.defaultSelected = p.id === "hopungmi-5kg";
         o.disabled = !p.available;
         return o;
@@ -259,7 +258,7 @@
     return sdkPromise;
   }
   async function searchAddress(card) {
-    if (pickupProduct(field(card,'product_id').value)) return;
+    if (cardPickup(card)) return;
     const panel = card.querySelector("[data-search-panel]"),
       status = card.querySelector("[data-search-status]"),
       button = card.querySelector("[data-search]");
@@ -362,10 +361,10 @@
         recipient_phone: validPhone(d.recipient_phone)
           ? ""
           : "받는 분 연락처를 확인해 주세요.",
-        postal_code: pickupProduct(d.product_id) || /^\d{5}$/.test(d.postal_code)
+        postal_code: d.fulfillment_method==='pickup' || /^\d{5}$/.test(d.postal_code)
           ? ""
           : "5자리 우편번호를 입력하거나 주소를 검색해 주세요.",
-        address: (pickupProduct(d.product_id) || d.address.length >= 5) ? "" : "배송 주소를 확인해 주세요.",
+        address: (d.fulfillment_method==='pickup' || d.address.length >= 5) ? "" : "배송 주소를 확인해 주세요.",
       }))
         check(
           field(c, key),
@@ -458,7 +457,6 @@
   form.addEventListener("change", (e) => {
     if (!locked && e.target.matches('[data-pickup-toggle]')) {
       const card=e.target.closest('.delivery-card');
-      field(card,'product_id').value=e.target.checked ? pickupId : 'hopungmi-5kg';
       stale();clearDiscount();refreshCards();
     }
     if (!locked && (e.target.id === "customer" || e.target.id === "phone")) {
@@ -596,7 +594,7 @@
           p_privacy_consent: $("order-check").checked,
         };
         const q = await api.rpc("farmer_quote_batch", {
-          p_deliveries: payload.p_deliveries.map(({product_id,quantity}) => ({product_id,quantity})),
+          p_deliveries: payload.p_deliveries.map(({product_id,quantity,fulfillment_method}) => ({product_id,quantity,fulfillment_method})),
           p_code: payload.p_coupon_code,
         });
         totals(q);
@@ -705,7 +703,7 @@
     try {
       if (!api?.ready()) throw new Error("주문 연결을 준비하고 있습니다.");
       const data = await api.rpc("farmer_catalog");
-      products = data.products;
+      products = data.products.filter(p=>!isPickup(p));
       shipping = data.shipping_fee;
       cards().forEach((c) => options(field(c, "product_id")));
       refreshCards();

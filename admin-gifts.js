@@ -10,16 +10,16 @@
     $("gift-message").textContent = text;
     $("gift-message").classList.toggle("error", error);
   };
-  const isPickup = card => field(card,"product_id").value === 'hopungmi-5kg-pickup';
+  const pickupProduct = p => p?.fulfillment_method==='pickup'||String(p?.id||'').endsWith('-pickup');
+  const isPickup = card => card.querySelector('[data-gift-pickup-toggle]').checked;
   const read = () => cards().map(card => {
     const d=Object.fromEntries([...card.querySelectorAll("[data-gift-field]")].map(el=>[el.dataset.giftField,el.dataset.giftField==="quantity"?Number(el.value):el.value.trim()]));
-    return {...d,gift_sponsor:$("gift-sponsor").value,...(isPickup(card)?{postal_code:'',address:'',address_detail:''}:{})};
+    return {...d,fulfillment_method:isPickup(card)?'pickup':'shipping',gift_sponsor:$("gift-sponsor").value,...(isPickup(card)?{postal_code:'',address:'',address_detail:''}:{})};
   });
   function deliveryMode(card){
     const pickup=isPickup(card);card.querySelector('[data-gift-shipping-fields]').hidden=pickup;card.querySelector('[data-gift-pickup]').hidden=!pickup;
     const toggle=card.querySelector('[data-gift-pickup-toggle]');
-    toggle.checked=pickup;
-    toggle.disabled=frozen()||!['hopungmi-5kg','hopungmi-5kg-pickup'].includes(field(card,'product_id').value)||(!pickup&&!products.some(p=>p.id==='hopungmi-5kg-pickup'&&p.available));
+    toggle.disabled=frozen();
     for(const key of ['postal_code','address','address_detail']){const e=field(card,key);e.disabled=pickup;e.required=!pickup&&key!=='address_detail';if(pickup)e.setCustomValidity('');}
     card.querySelector('[data-gift-label="memo"]').firstChild.textContent=pickup?'수령 메모 ':'배송 메모 ';
     field(card,'memo').placeholder=pickup?'예: 오후에 방문할게요':'예: 문 앞에 놓아 주세요';
@@ -86,7 +86,7 @@
     try {
       const result = await api.admin("farmer_admin_gift_catalog");
       if (current !== revision || !$("gift-dialog").open) return;
-      products = result.products;
+      products = result.products.filter(p=>!pickupProduct(p));
       busy = false;
       addCard();
       tell(products.some(p => p.available) ? "" : "현재 등록 가능한 재고가 없습니다.", !products.some(p => p.available));
@@ -193,8 +193,6 @@
   $("gift-deliveries").addEventListener("change",e=>{
     if(frozen())return;
     if(e.target.matches('[data-gift-pickup-toggle]')){
-      const card=e.target.closest('.gift-card'),id=e.target.checked?'hopungmi-5kg-pickup':'hopungmi-5kg';
-      if(products.some(p=>p.id===id&&p.available))field(card,'product_id').value=id;
       tell('');update();
     }else if(e.target.matches('[data-gift-field="product_id"]'))update();
   });

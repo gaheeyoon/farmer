@@ -32,7 +32,7 @@ for(const name of (await readdir(migrations)).filter(name=>name.endsWith('.sql')
 assert.deepEqual((await db.query('select tracking_numbers from public.farmer_orders where request_id=$1',[legacyArgs[0]])).rows[0].tracking_numbers,['LEGACY-BOX-001']);
 assert.equal(previousPriceReceipt.total,21500);
 assert.deepEqual((await db.query('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result',previousPriceArgs)).rows[0].result,previousPriceReceipt);
-assert.deepEqual((await db.query('select to_jsonb(o) as snapshot from public.farmer_orders o where request_id=$1',[previousPriceArgs[0]])).rows[0].snapshot,{...previousPriceSnapshot,deleted_at:null,gift_sponsor:null,tracking_numbers:[]});
+assert.deepEqual((await db.query('select to_jsonb(o) as snapshot from public.farmer_orders o where request_id=$1',[previousPriceArgs[0]])).rows[0].snapshot,{...previousPriceSnapshot,deleted_at:null,gift_sponsor:null,tracking_numbers:[],pickup_requested:false});
 assert.equal(legacyReceipt.total,11500);
 assert.deepEqual((await db.query('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) as result',legacyArgs)).rows[0].result,legacyReceipt);
 assert.equal((await db.query('select total from public.farmer_orders where request_id=$1',[legacyArgs[0]])).rows[0].total,11500);
@@ -47,7 +47,7 @@ const submit=args=>rpc('select public.farmer_submit_order($1,$2,$3,$4,$5,$6,$7,$
 await anon();
 const catalog=await rpc('select public.farmer_catalog() as result');
 assert.equal(catalog.shipping_fee,0);
-assert.deepEqual(catalog.products.map(p=>p.price),[12000,22000,22000]);
+assert.deepEqual(catalog.products.map(p=>p.price),[12000,16000,22000]);
 assert.equal((await rpc(`select public.farmer_quote('hopungmi-5kg',3,'goguma') as result`)).total,59400);
 for(const [product,qty,discount,total] of [['hopungmi-2kg',1,1200,10800],['hopungmi-5kg',1,2200,19800],['hopungmi-2kg',3,3600,32400],['hopungmi-5kg',3,6600,59400]]) {
  const q=await rpc('select public.farmer_quote($1,$2,$3) as result',[product,qty,'GOGUMA']);assert.equal(q.discount_amount,discount);assert.equal(q.discount_percent,10);assert.equal(q.total,total);assert.equal(q.shipping_fee,0);
@@ -328,6 +328,12 @@ const {verifyFiveStages}=await import('./five-stages.mjs');
 await verifyFiveStages({db,rpc,admin,anon,expectError});
 const {verifyHanjinImport}=await import('./hanjin-import.mjs');
 await verifyHanjinImport({db,rpc,admin,anon,expectError});
+const {verifyProduct3kg}=await import('./product-3kg.mjs');
+await verifyProduct3kg({db,rpc,admin,anon,expectError});
+const {verifyPickup3kg}=await import('./pickup-3kg.mjs');
+await verifyPickup3kg({db,rpc,admin,anon,expectError});
+const {verifyPerItemDiscount}=await import('./per-item-discount.mjs');
+await verifyPerItemDiscount({db,rpc,admin,anon,expectError});
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 await expectError(()=>bulk(confirmedPayload,'confirmed'),'관리자 권한');

@@ -32,3 +32,9 @@ const pickupRows=comparison({...base,giftQty5:2,giftPickupQty5:3});assert.equal(
 for(const value of [-1,1.5,NaN,Infinity,1000001,null])assert.throws(()=>calculate({...base,giftPickupQty5:value}));
 assert.equal(calculate({...base,giftPickupQty5:0}).profit,calculate(base).profit);
 console.log('PASS: pickup gifts charge packing only; mixed paid/shipping/pickup gifts, inventory, break-even, comparisons and validation.');
+
+r=calculate({...base,qty2:1,qty3:2,price3:16000,qty5:1,shipping:4000,packing:1500,availableKg:13});
+assert.equal(r.boxes,4);assert.equal(r.kg,13);assert.equal(r.revenue,66000);assert.equal(r.shippingCost,16000);assert.equal(r.packingCost,6000);assert.equal(r.remainingKg,0);assert.equal(r.contribution,44000);
+assert.equal(comparison({...base,qty5:0,qty3:2,price3:16000})[3].revenue,34000);
+for(const key of ['price3','qty3'])for(const value of [-1,NaN,Infinity,1.5,null])assert.throws(()=>calculate({...base,[key]:value}));
+console.log('PASS: 3kg planning includes revenue, weight, postage/packing, price sensitivity and input validation.');

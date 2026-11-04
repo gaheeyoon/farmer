@@ -10,7 +10,7 @@
  let epoch=0,loading=false,busy=false,pending=null,editing=null,offset=0,data=null,historyCode=null,historyOffset=0,historyTotal=0,historyTicket=0,historyLoading=false;
  const canLeave=()=>!busy&&!pending;
  function controls(value){$('coupon-filter').querySelectorAll('input,select,button').forEach(e=>e.disabled=value);$('coupon-add').disabled=value;$('coupon-refresh').disabled=value;}
- function description(c){return c.mode==='percent'?`상품 금액의 ${c.percent}% 할인`:c.mode==='product_unit'?`최대 ${money(c.amount)} 할인`:`주문당 ${money(c.amount)} 할인`;}
+ function description(c){return c.mode==='percent'?`상품 금액의 ${c.percent}% 할인`:c.mode==='product_unit'?`최대 ${money(c.amount)} 할인`:c.mode==='per_item'?`상품 1개당 ${money(c.amount)} 할인`:`주문당 ${money(c.amount)} 할인`;}
  function render(result){
   data=result;$('coupon-rows').replaceChildren();$('coupon-count').textContent=n(result.total)+'개';
   for(const c of result.codes){
@@ -36,9 +36,9 @@
  }
  function settings(){
   const mode=$('coupon-mode').value,percent=mode==='percent';$('coupon-product-field').hidden=mode!=='product_unit';$('coupon-product').required=mode==='product_unit';
-  $('coupon-value-label').textContent=percent?'할인율 (%) *':mode==='product_unit'?'최대 할인 금액 (원) *':'할인 금액 (원) *';$('coupon-value').max=percent?'100':'100000000';
+  $('coupon-value-label').textContent=percent?'할인율 (%) *':mode==='product_unit'?'최대 할인 금액 (원) *':mode==='per_item'?'상품 1개당 할인 금액 (원) *':'할인 금액 (원) *';$('coupon-value').max=percent?'100':'100000000';
   $('coupon-limit-field').hidden=$('coupon-unlimited').checked;$('coupon-limit').required=!$('coupon-unlimited').checked;
-  $('coupon-benefit-help').textContent=percent?'배송비를 제외한 상품 금액에 적용합니다.':mode==='product_unit'?'대상 상품이 포함된 주문에서, 해당 상품 1개의 판매가와 최대 할인 금액 중 작은 금액을 한 번 할인합니다.':'상품 금액에서 주문당 한 번 할인합니다. 주문 금액을 초과해 할인하지 않습니다.';
+  $('coupon-benefit-help').textContent=percent?'배송비를 제외한 상품 금액에 적용합니다.':mode==='product_unit'?'대상 상품이 포함된 주문에서, 해당 상품 1개의 판매가와 최대 할인 금액 중 작은 금액을 한 번 할인합니다.':mode==='per_item'?'상자 1개마다 지정 금액을 할인합니다. 예: 2,000원 설정 시 3상자는 6,000원 할인. 각 상품의 판매가를 초과해 할인하지 않습니다.':'상품 금액에서 주문당 한 번 할인합니다. 주문 금액을 초과해 할인하지 않습니다.';
  }
  function lock(value){$('coupon-fields').disabled=value;for(const id of ['coupon-close','coupon-cancel','coupon-delete'])$(id).disabled=value;$('coupon-save').disabled=busy;$('coupon-save').textContent=busy?'처리 중…':pending?'처리 결과 다시 확인':'저장';}
  function open(c=null){

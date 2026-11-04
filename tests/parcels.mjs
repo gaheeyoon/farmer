@@ -8,6 +8,7 @@ assert.ok(rows.every(r=>r.total===r.subtotal-r.discount_amount+r.shipping_fee));
 assert.deepEqual(values({...order,tracking_numbers:undefined}),['001234','','',''],'legacy number belongs to first box only');
 assert.deepEqual(values({...order,tracking_numbers:['','SECOND','','']}),['','SECOND','',''],'empty slots preserve indexes');
 rows=exportRows([{...order,product_id:'hopungmi-5kg-pickup'}]);assert.ok(rows.every(r=>r.tracking_number===''));
+rows=exportRows([{...order,product_id:'hopungmi-3kg-pickup',weight_grams:12000}]);assert.ok(rows.every(r=>r.tracking_number===''&&r.weight_grams===3000));
 rows=exportRows([{...order,subtotal:0,discount_amount:0,shipping_fee:0,total:0,order_kind:'gift'}]);assert.ok(rows.every(r=>r.total===0));
 for(const quantity of [0,100,1.5])assert.throws(()=>exportRows([{...order,quantity}]));
 assert.throws(()=>exportRows([order],3));assert.throws(()=>exportRows([{...order,total:1}]));

@@ -12,7 +12,7 @@
     delivered: "배송 완료",
     cancelled: "취소",
   };
-  const isPickup = o => o?.fulfillment_method === 'pickup' || o?.product_id === 'hopungmi-5kg-pickup' || String(o?.product_name || '').includes('방문 수령');
+  const isPickup = o => o?.pickup_requested===true || o?.fulfillment_method === 'pickup' || String(o?.product_id || '').endsWith('-pickup') || String(o?.product_name || '').includes('방문 수령');
   const stageLabel = (status,orders) => status==='confirmed' ? (orders.every(o=>o.awaiting_address) ? statuses.confirmed_waiting_address : orders.some(o=>o.awaiting_address) ? '입금 확인' : statuses.confirmed_ready) : statuses[status];
   const freeGiftOwner = o => o.order_kind==='gift' ? o.gift_sponsor||'미지정' : Number(o.unit_price)>0&&Number(o.discount_amount)>=Number(o.unit_price) ? ({'고구맙습니다홍세환선물용':'홍세환','고구맙습니다윤가희선물용':'윤가희'})[o.discount_code]||'' : '';
   const statusText = o => o.awaiting_address && o.status==='confirmed' ? statuses.confirmed_waiting_address : statuses[o.status];
@@ -97,10 +97,10 @@
     const boxLabels={pending:'박스 총 ',confirmed_waiting_address:'박스 총 ',confirmed_ready:'출고할 박스 총 ',shipped:'발송한 박스 총 ',delivered:'전달한 박스 총 '};
     for (const stage of Object.keys(boxLabels)) {
       const boxCount=key=>s[key]!==null && s[key]!==undefined && Number.isFinite(Number(s[key])) ? Number(s[key]) : null;
-      const boxes2=boxCount(stage+'_2kg_boxes'),boxes5=boxCount(stage+'_5kg_boxes'),total=boxCount(stage+'_boxes');
+      const boxes2=boxCount(stage+'_2kg_boxes'),boxes3=boxCount(stage+'_3kg_boxes'),boxes5=boxCount(stage+'_5kg_boxes'),total=boxCount(stage+'_boxes');
       $(stage+'-boxes').replaceChildren(
         node('span',boxLabels[stage]+(total===null?'—':number(total))+'상자','metric-box-total'),
-        node('span','5kg '+(boxes5===null?'—':number(boxes5))+'상자 · 2kg '+(boxes2===null?'—':number(boxes2))+'상자')
+        node('span','5kg '+(boxes5===null?'—':number(boxes5))+'상자 · 3kg '+(boxes3===null?'—':number(boxes3))+'상자 · 2kg '+(boxes2===null?'—':number(boxes2))+'상자')
       );
     }
     $("updated-at").textContent = "전체 주문 기준 · 최근 확인 " + date(new Date().toISOString());

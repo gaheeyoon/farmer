@@ -1,7 +1,7 @@
 /* Parcel slots never split inventory, payment or order identities. */
 (() => {
  'use strict';
- const pickup=o=>o.fulfillment_method==='pickup'||o.product_id==='hopungmi-5kg-pickup';
+ const pickup=o=>o.pickup_requested===true||o.fulfillment_method==='pickup'||String(o.product_id||'').endsWith('-pickup');
  const qty=o=>{if(!Number.isInteger(o.quantity)||o.quantity<1||o.quantity>99)throw Error('주문 수량을 확인해 주세요.');return o.quantity;};
  function values(o){
   const n=qty(o);if(pickup(o))return Array(n).fill('');

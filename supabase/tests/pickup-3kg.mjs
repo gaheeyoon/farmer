@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+export async function verifyPickup3kg({db,rpc,admin,anon,expectError}){
+ await db.exec('reset role;begin;update public.farmer_inventory set available_grams=1000000;');
+ const bad=async(fn,text)=>{await db.exec('savepoint negative_pickup3');try{await expectError(fn,text);}finally{await db.exec('rollback to savepoint negative_pickup3;release savepoint negative_pickup3;');}};
+ const d={product_id:'hopungmi-3kg',fulfillment_method:'pickup',quantity:1,recipient_name:'삼키로방문',recipient_phone:'01022223333',memo:'오후 방문'};
+ const stock=()=>rpc('select public.farmer_admin_summary() as result'),costs=()=>rpc('select public.farmer_admin_fulfillment_costs(2026) as result'),gifts=()=>rpc('select public.farmer_admin_free_gift_summary(2026) as result');
+ const list=()=>rpc("select public.farmer_admin_order_list('','삼키로방문',0,'') as result");
+ const change=(o,status,request=randomUUID())=>rpc('select public.farmer_admin_change_status($1,$2,$3,$4,$5,$6) as result',[o.id,status,o.version,request,'','']);
+ await anon();let catalog=await rpc('select public.farmer_catalog() as result');assert.equal(catalog.products.find(p=>p.id===d.product_id).fulfillment_method,'shipping');
+ const batchQuote=await rpc('select public.farmer_quote_batch($1,\'\') as result',[JSON.stringify([d])]);const quote=batchQuote.deliveries[0];assert.equal(quote.total,16000);assert.equal(quote.weight_grams,3000);assert.equal(quote.shipping_fee,0);assert.equal(quote.fulfillment_method,'pickup');
+ const request=randomUUID(),args=[request,'삼키로방문주문자','01011112222',JSON.stringify([d]),'',16000,true];const submit=()=>rpc('select public.farmer_submit_batch($1,$2,$3,$4,$5,$6,$7) as result',args);const receipt=await submit();assert.deepEqual(await submit(),receipt);
+ await bad(()=>rpc('select public.farmer_buy_gifts($1,$2,$3,$4,$5,$6,$7,$8) as result',[randomUUID(),'보내는이','01011112222','보내는이',JSON.stringify([{product_id:d.product_id,fulfillment_method:'pickup',quantity:1,recipient_label:'받는이',message:''}]),'',16000,true]),'택배');
+ await admin();const before=await stock(),beforeCost=await costs();let o=(await list()).orders[0];assert.equal(o.product_id,'hopungmi-3kg');assert.equal(o.fulfillment_method,'pickup');assert.equal(o.address,'원북면 원이로 804-59');assert.equal(o.address_detail,'홍세환 소셜라운지');assert.equal(o.postal_code,'');
+ await change(o,'confirmed');o=(await list()).orders[0];assert.equal((await stock()).available_kg,before.available_kg-3);let c=await costs();assert.equal(c.shipping_boxes,beforeCost.shipping_boxes);assert.equal(c.pickup_boxes,beforeCost.pickup_boxes+1);
+ const confirmStock=await stock(),shipRequest=randomUUID();await change(o,'shipped',shipRequest);await change(o,'shipped',shipRequest);o=(await list()).orders[0];assert.equal(o.carrier,'방문 수령');assert.deepEqual(o.tracking_numbers,[]);assert.equal((await stock()).available_kg,confirmStock.available_kg);
+ const rows=[{row:3,tracking:'463615390001',name:o.recipient_name,phone:'0102222****',postal:'',address:o.address,weight_grams:3000,quantity:1,order_number:o.order_number}];const preview=await rpc('select public.farmer_admin_hanjin_preview($1) as result',[JSON.stringify(rows)]);assert.equal(preview.rows[0].candidates.length,0);
+ await change(o,'cancelled');assert.equal((await stock()).available_kg,before.available_kg);
+ const beforeGift=await gifts(),giftCost=await costs(),giftArgs=[randomUUID(),JSON.stringify([{...d,quantity:2,gift_sponsor:'윤가희&홍세환'}])];const create=()=>rpc('select public.farmer_admin_create_gifts($1,$2) as result',giftArgs);const giftReceipt=await create();assert.deepEqual(await create(),giftReceipt);const afterGift=await gifts();assert.equal(afterGift.totals.qty3-beforeGift.totals.qty3,2);assert.equal(afterGift.totals.pickup_qty3-beforeGift.totals.pickup_qty3,2);assert.equal(afterGift.totals.shipping_qty3,beforeGift.totals.shipping_qty3);assert.equal(afterGift.totals.qty5,beforeGift.totals.qty5);c=await costs();assert.equal(c.shipping_boxes,giftCost.shipping_boxes);assert.equal(c.pickup_boxes,giftCost.pickup_boxes+2);assert.equal((await stock()).available_kg,before.available_kg-6);
+ await bad(()=>rpc('select public.farmer_quote_gifts($1,\'\') as result',[JSON.stringify([d])]),'택배');
+ await db.exec('reset role;rollback;');console.log('PASS: 3kg pickup address-free checkout, same price, canonical location, shared stock/retries, postage exclusion, packing-only gifts, size/sponsor counts, pickup cancellation, Hanjin exclusion and gift-link guard.');
+}
