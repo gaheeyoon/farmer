@@ -28,8 +28,9 @@
    if(r.candidates.length===1&&!r.reason){select.value=r.candidates[0].id;box.checked=true;}
    const blocked=!!r.reason;box.dataset.blocked=String(blocked);select.dataset.blocked=String(blocked);
    for(const el of [box,node('span',String(r.row)),node('span',r.name||'—'),node('span',r.tracking),select]){const td=node('td');td.append(el);tr.append(td);}
-   const detail=node('td',r.reason||(r.candidates.length>1?'같은 배송지의 주문이 여럿입니다. 연결할 주문을 선택해 주세요.':r.candidates[0]?.existing?'기존 송장과 같습니다.':'등록할 수 있습니다.'));tr.append(detail);
-   box.addEventListener('change',()=>{if(box.checked&&!select.value){box.checked=false;select.focus();}sync();});select.addEventListener('change',()=>{box.checked=!!select.value;sync();});$('hanjin-rows').append(tr);
+   const detail=node('td');tr.append(detail);
+   const updateDetail=()=>{const c=r.candidates.find(c=>c.id===select.value);detail.textContent=r.reason||(!c&&r.candidates.length>1?'같은 배송지의 주문이 여럿입니다. 연결할 주문을 선택해 주세요.':c?.existing?'기존 송장과 같습니다.':c?.replaceable>0?'임시 송장번호를 실제 송장번호로 교체합니다.':'등록할 수 있습니다.');};updateDetail();
+   box.addEventListener('change',()=>{if(box.checked&&!select.value){box.checked=false;select.focus();}sync();});select.addEventListener('change',()=>{box.checked=!!select.value;updateDetail();sync();});$('hanjin-rows').append(tr);
   }
   $('hanjin-preview').hidden=false;sync();
  }

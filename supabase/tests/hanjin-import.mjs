@@ -27,6 +27,29 @@ export async function verifyHanjinImport({db,rpc,admin,anon,expectError}){
  a=await read(a.id);assert.equal(a.status,'shipped');assert.equal(a.carrier,'한진');assert.deepEqual(a.tracking_numbers,rows.map(r=>r.tracking));
  for(const key of ['customer_name','phone','recipient_name','recipient_phone','postal_code','address','address_detail','memo','subtotal','total','discount_amount','weight_grams','quantity','confirmed_at'])assert.deepEqual(a[key],before[key]);
  p=await preview(rows);assert.ok(p.rows.every(r=>r.candidates[0].existing));const repeat=await commit(rows,mapped(p));assert.equal(repeat.orders,0);assert.equal(repeat.parcels,0);assert.equal((await read(a.id)).version,a.version);
+
+ // Placeholder 123 must not consume a real Hanjin slot (production regression).
+ let placeholder=await confirm(await submit('임시송장검증',1));
+ await db.exec('reset role;');await db.query("update public.farmer_orders set carrier='한진',tracking_number='123',tracking_numbers=array['123'],status='shipped' where id=$1",[placeholder.id]);await admin();placeholder=await read(placeholder.id);
+ const placeholderRows=[{...parcel(placeholder,3,'463688271594'),name:placeholder.recipient_name}],placeholderStock=await stock();p=await preview(placeholderRows);
+ assert.equal(p.rows[0].candidates[0].replaceable,1);const placeholderRequest=randomUUID(),placeholderMatches=mapped(p);
+ const replaced=await commit(placeholderRows,placeholderMatches,true,placeholderRequest);assert.equal(replaced.parcels,1);assert.equal(replaced.orders,1);
+ assert.deepEqual(await commit(placeholderRows,placeholderMatches,true,placeholderRequest),replaced);
+ const fixed=await read(placeholder.id);assert.deepEqual(fixed.tracking_numbers,['463688271594']);assert.equal(fixed.tracking_number,'463688271594');assert.equal(fixed.status,'shipped');assert.equal(await stock(),placeholderStock);
+ p=await preview(placeholderRows);assert.equal((await commit(placeholderRows,mapped(p))).orders,0);assert.equal((await read(placeholder.id)).version,fixed.version);
+ await db.exec('reset role;');const history=(await db.query('select tracking_before from farmer_private.hanjin_import_orders where request_id=$1',[placeholderRequest])).rows[0];assert.deepEqual(history.tracking_before,['123']);await admin();
+ // Partial replacement preserves real waybills and waits for every valid slot.
+ let mixed=await confirm(await submit('일부임시송장',3));await db.exec('reset role;');await db.query("update public.farmer_orders set carrier='한진',tracking_number='463688000001',tracking_numbers=array['463688000001','123','임시'] where id=$1",[mixed.id]);await admin();
+ const mixedRows=[{...parcel(mixed,3,'463688000002'),name:mixed.recipient_name}];p=await preview(mixedRows);assert.equal(p.rows[0].candidates[0].replaceable,2);
+ assert.equal((await commit(mixedRows,mapped(p))).partial,1);mixed=await read(mixed.id);assert.equal(mixed.status,'confirmed');assert.deepEqual(mixed.tracking_numbers,['463688000001','463688000002','임시']);
+ const finalRows=[{...parcel(mixed,4,'463688000003'),name:mixed.recipient_name}];p=await preview(finalRows);await commit(finalRows,mapped(p));mixed=await read(mixed.id);assert.equal(mixed.status,'shipped');assert.deepEqual(mixed.tracking_numbers,['463688000001','463688000002','463688000003']);
+ // A genuine formatted waybill remains the same number and cannot be replaced.
+ let formatted=await confirm(await submit('기존실제송장',1));await db.exec('reset role;');await db.query("update public.farmer_orders set carrier='한진',tracking_number='4636-8800-0004',tracking_numbers=array['4636-8800-0004'] where id=$1",[formatted.id]);await admin();
+ const formattedRows=[{...parcel(formatted,3,'463688000005'),name:formatted.recipient_name}];p=await preview(formattedRows);assert.equal(p.rows[0].candidates[0].replaceable,0);await bad(()=>commit(formattedRows,mapped(p)),'주문 수량보다');assert.deepEqual((await read(formatted.id)).tracking_numbers,['4636-8800-0004']);
+ // Even an invalid-looking waybill from another courier is not replaced.
+ let other=await confirm(await submit('다른택배보호',1));await db.exec('reset role;');await db.query("update public.farmer_orders set carrier='우체국택배',tracking_number='123',tracking_numbers=array['123'] where id=$1",[other.id]);await admin();
+ const otherRows=[{...parcel(other,3,'463688000006'),name:other.recipient_name}];p=await preview(otherRows);assert.equal(p.rows[0].candidates[0].replaceable,0);await bad(()=>commit(otherRows,mapped(p)),'다른 택배사');assert.deepEqual((await read(other.id)).tracking_numbers,['123']);
+ console.log('PASS: replace only invalid Hanjin placeholders, preserve genuine and other-courier waybills, partial-slot shipping guard, audit history, retries and unchanged stock.');
  const pending=await submit('미입금한진',1),pendingRow=[{...parcel(pending,3,'463615371111'),name:pending.recipient_name}];p=await preview(pendingRow);const pendingStock=await stock();await commit(pendingRow,mapped(p));assert.equal((await read(pending.id)).status,'pending');assert.equal((await read(pending.id)).confirmed_at,null);assert.equal(await stock(),pendingStock);
  const free=await submit('전액할인선물',1);await db.exec('reset role;');await db.query('update public.farmer_orders set discount_amount=subtotal,total=0 where id=$1',[free.id]);await admin();const freeRow=[{...parcel(free,3,'463615371999'),name:free.recipient_name}],freeBefore=await stock();p=await preview(freeRow);await commit(freeRow,mapped(p));assert.equal((await read(free.id)).status,'shipped');assert.equal(await stock(),freeBefore-5);
  const c1=await submit('같은받는분',1),c2=await submit('같은받는분',2),ambiguous=[{...parcel(c1,3,'463615372222'),name:'같은받는분'}];p=await preview(ambiguous);assert.equal(p.rows[0].candidates.length,2);await bad(()=>commit(ambiguous,[{row:3,order_id:a.id,expected_version:a.version}]),'일치하지 않는 주문');

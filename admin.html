@@ -974,7 +974,7 @@
     </dialog>
     <dialog id="hanjin-dialog" aria-labelledby="hanjin-title" class="hanjin-dialog">
       <div class="dialog-head"><h2 id="hanjin-title">송장 추가 (한진)</h2><button type="button" class="close" data-hanjin-close aria-label="한진 송장 추가 닫기">×</button></div>
-      <p class="notice">한진 배송현황 세부내역 엑셀을 선택한 뒤 연결할 주문을 확인해 주세요. 기존 송장은 덮어쓰지 않습니다.</p>
+      <p class="notice">한진 배송현황 세부내역 엑셀을 선택한 뒤 연결할 주문을 확인해 주세요. 정상 송장은 유지하며, 12자리 형식이 아닌 임시 값만 교체합니다.</p>
       <div class="field"><label for="hanjin-file">한진 엑셀 파일</label><input id="hanjin-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
       <p id="hanjin-status" class="message" role="status" aria-live="polite"></p>
       <section id="hanjin-preview" hidden><h3>주문 연결 확인</h3><p id="hanjin-count" class="message" aria-live="polite"></p><div class="table-wrap"><table><thead><tr><th>선택</th><th>엑셀 행</th><th>받는 분</th><th>송장번호</th><th>연결할 주문</th><th>확인 사항</th></tr></thead><tbody id="hanjin-rows"></tbody></table></div></section>
@@ -993,7 +993,7 @@
     <script src="admin-simulator.js?v=20261102-3kg1"></script>
     <script src="admin-parcels.js?v=20261104-checkbox2"></script>
     <script src="admin-delivery.js?v=20261104-checkbox2"></script>
-    <script src="hanjin-file.js?v=20261030-1"></script><script src="admin-hanjin.js?v=20261030-stages1"></script>
+    <script src="hanjin-file.js?v=20261030-1"></script><script src="admin-hanjin.js?v=20261109-placeholder1"></script>
     <script src="admin-xlsx.js?v=20261030-sms1"></script>
     <script src="admin-order-tools.js?v=20261030-stages1"></script>
     <script src="admin-reviews.js?v=20261024-1"></script>
