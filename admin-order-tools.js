@@ -37,7 +37,17 @@
  const columns=[['주문번호','order_number',22],['접수일시(한국시간)','created_at',24,dt],['주문 구분','order_kind',16,v=>v==='gift'?'무상 선물':'일반 주문'],['선물 링크 주문','is_link_gift',16,v=>v?'예':'아니오'],['상태','status',22,(v,o)=>o.deleted_at?'삭제됨(취소)':({pending:'입금 대기',confirmed:o.awaiting_address?'입금 확인 (주소 입력 대기)':'입금 확인 (배송 준비)',shipped:'배송·수령 중',shipped_unpaid:'입금 대기',delivered:'배송·수령 완료',cancelled:'취소'})[v]||v],['수령 방식','fulfillment_method',16,v=>v==='pickup'?'방문 수령':'배송'],['상품','product_name',26],['주문 전체 수량','order_quantity',16,null,true],['상자 순번','parcel_label',14],['수량','quantity',10,null,true],['중량(kg)','weight_grams',14,v=>Number(v)/1000,true],['상품 금액(상자별)','subtotal',16,Number,true],['할인코드','discount_code',24],['할인 금액(상자별)','discount_amount',16,Number,true],['배송비(상자별)','shipping_fee',14,Number,true],['결제 금액(상자별)','total',18,Number,true],['선물하는 사람','gift_sponsor',18,(v,o)=>v||(Number(o.unit_price)>0&&Number(o.discount_amount)>=Number(o.unit_price)?({'고구맙습니다홍세환선물용':'홍세환','고구맙습니다윤가희선물용':'윤가희'})[o.discount_code]||'':'')],['주문자','customer_name',18],['주문자 연락처','phone',20],['받는 분','recipient_name',18],['받는 분 연락처','recipient_phone',20],['우편번호','postal_code',12],['주소','address',48],['상세주소','address_detail',32],['배송 메모','memo',40],['택배사/배송 방법','carrier',22],['송장번호','tracking_number',26],['입금 확인일시','confirmed_at',24,dt],['발송일시','shipped_at',24,dt],['완료일시','delivered_at',24,dt],['취소일시','cancelled_at',24,dt],['삭제일시','deleted_at',24,dt]].map(([title,key,width,convert,number])=>({title,width,number,decimal:key==='weight_grams',value:o=>convert?convert(o[key],o):o[key]??''}));
  // Fixed courier template: never append internal/payment/tracking columns here.
  const courierHeaders=['주문번호','상품','수량','중량(kg)','받는 분','받는 분 연락처','우편번호','주소','상세주소','배송 메모'];
- const courierColumns=courierHeaders.map(title=>columns.find(column=>column.title===title));
+ const nameKey=name=>name.normalize('NFC').replace(/\s+/g,'').toLowerCase();
+ function courierMemo(o){
+  const memo=o.memo??'',buyer=(o.customer_name??'').trim(),recipient=(o.recipient_name??'').trim();
+  if(!o.is_link_gift&&(!buyer||!recipient||nameKey(buyer)===nameKey(recipient)))return memo;
+  const sender=(o.gift_sender_name??'').trim()||(o.order_kind==='gift'&&o.gift_sponsor!=='기부'?o.gift_sponsor?.trim():'')||buyer;
+  return sender?[memo,`${sender} 님이 선물한 고구마입니다`].filter(part=>part.trim()).join(' '):memo;
+ }
+ const courierColumns=courierHeaders.map(title=>{
+  const column=columns.find(column=>column.title===title);
+  return title==='배송 메모'?{...column,value:courierMemo}:column;
+ });
  const smsColumns=[['이름','recipient_name',18],['연락처','recipient_phone',20],['송장번호','tracking_number',26]].map(([title,key,width])=>({title,width,value:o=>o[key]??''}));
  async function download(kind='orders'){
   const s=ctx.state();if(!s.canStart||locked())return;const ticket=epoch,filters={...s.filters};exporting=kind;ctx.changed();sync();tell('현재 검색 조건의 전체 주문을 준비하고 있습니다.');

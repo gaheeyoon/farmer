@@ -39,6 +39,9 @@ export async function verifyGiftLinks({db,rpc,admin,anon,expectError}) {
  const after=await rpc('select public.farmer_admin_finance_report($1,$2,$3,$4) as result',[2026,'','',0]);assert.deepEqual(after.summary,before.summary);
  order=(await rpc('select public.farmer_admin_order_list() as result')).orders.find(o=>o.id===order.id);
  assert.equal(order.is_link_gift,true);assert.equal(order.awaiting_address,false);assert.equal(order.recipient_phone,'01098765432');assert.equal(order.version,3);
+ const exported=(await rpc("select public.farmer_admin_export_orders('confirmed_ready','구매자','sale') as result")).orders.find(o=>o.id===order.id);
+ assert.equal(exported.gift_sender_name,'보내는이');assert.equal(exported.customer_name,'구매자');assert.equal(exported.recipient_name,'받은 사람');assert.equal(exported.token,undefined);
+ await anon();await expectError(()=>rpc('select public.farmer_admin_export_orders() as result'),'permission denied');await admin();
  await change(order,'shipped',u(10));await change({...order,version:4},'delivered',u(11));assert.equal(await stock(),95);
  // Free gifts require an approved admin and deduct exactly once at link creation.
  const free=()=>rpc('select public.farmer_admin_create_gift_link($1,$2,$3,$4,$5,$6,$7) as result',[u(12),'hopungmi-5kg',1,'홍세환','친구','감사합니다',30]);
