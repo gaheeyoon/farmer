@@ -334,6 +334,8 @@ const {verifyPickup3kg}=await import('./pickup-3kg.mjs');
 await verifyPickup3kg({db,rpc,admin,anon,expectError});
 const {verifyPerItemDiscount}=await import('./per-item-discount.mjs');
 await verifyPerItemDiscount({db,rpc,admin,anon,expectError});
+const {verifySms}=await import('./sms.mjs');
+await verifySms({db,rpc,admin,anon,expectError});
 await db.exec(`reset role;update auth.users set email_confirmed_at=null where id='00000000-0000-0000-0000-000000000001';`);
 await admin();await expectError(()=>db.query('select public.farmer_admin_summary()'),'관리자 권한');
 await expectError(()=>bulk(confirmedPayload,'confirmed'),'관리자 권한');

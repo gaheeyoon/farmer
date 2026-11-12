@@ -39,7 +39,7 @@
   const canMove=(o,status)=>({pending:['confirmed'],confirmed:['shipped'],shipped:['delivered'],shipped_unpaid:['shipped']}[o.status]||[]).includes(status) && (status!=='shipped_unpaid'||o.order_kind==='sale'&&Number(o.total)>0&&!o.is_link_gift&&!o.awaiting_address);
   const needsShipment=(o,status)=>['shipped','shipped_unpaid'].includes(status)&&['pending','confirmed'].includes(o.status);
   let bulkPending = null, bulkBusy = false;
-  const locked = () => loading || bulkBusy || !!bulkPending || window.FarmerDelivery.locked() || window.FarmerOrderTools.locked() || window.FarmerHanjin.locked();
+  const locked = () => loading || bulkBusy || !!bulkPending || window.FarmerDelivery.locked() || window.FarmerOrderTools.locked() || window.FarmerHanjin.locked() || !window.FarmerSms.canLeave();
   const selectedOrders = () => state.orders.filter(o => selected.has(o.id));
   const requestId = (payload) => {
     const key = JSON.stringify(payload);
@@ -63,6 +63,7 @@
   };
   function clearPrivateView() {
     version++;
+    window.FarmerSms.clear();
     window.FarmerOrderTools.clear();
     window.FarmerHanjin.clear();
     window.FarmerDelivery.clear();
@@ -115,6 +116,7 @@
   }
   function renderSelection() {
     const orders = selectedOrders();
+    $("sms-selected").disabled=locked()||!orders.length;
     const same = orders.length > 0 && orders.every(o => !o.deleted_at && !(o.awaiting_address && o.status === "confirmed") && o.status === orders[0].status);
     const previous=$('bulk-status').value;
     const allowed=same ? [...$('bulk-status').options].map(o=>o.value).filter(v=>v&&orders.every(o=>canMove(o,v))) : [];
@@ -248,6 +250,7 @@
       item.append(node("small", "총 " + number(o.weight_grams / 1000) + " kg"));
       cell(row, o.order_kind === "gift" ? "0원 · 무상" : number(o.total) + "원");
       cell(row).append(node("span", o.deleted_at ? "삭제됨 · 취소" : statusText(o), "badge " + o.status));
+      if(o.status==='shipped'&&!isPickup(o)){const mark=node('small','','sms-status-tag');mark.dataset.smsOrder=o.id;row.lastChild.append(mark);}
       cell(row, date(o.delivered_at));
       $("orders-body").append(row);
     }
@@ -258,6 +261,7 @@
     $("previous").disabled = state.offset === 0;
     $("next").disabled = state.offset + 50 >= state.total;
     renderSelection();
+    void window.FarmerSms.marks(state.orders);
   }
   async function load() {
     if (locked()) return;
@@ -310,6 +314,7 @@
     $("dashboard").hidden = false;
     $("logout").hidden = false;
     await load();
+    showAdminView('operations');
     if (!api.persistsSession()) message("dashboard-message", "브라우저에서 로그인 정보 저장을 허용해야 새로고침 후에도 로그인이 유지됩니다.", true);
   }
   async function authenticationError(e) {
@@ -629,16 +634,19 @@
   window.FarmerDiscounts.init();
   window.FarmerSimulator.init();
   window.FarmerReviewsAdmin.init();
-  document.querySelectorAll('[data-admin-view]').forEach(button => button.addEventListener('click', () => {
-    if (locked() || !window.FarmerFinance.canLeave() || !window.FarmerDiscounts.canLeave()) return;
-    const view = button.dataset.adminView;
-    for (const name of ['operations', 'finance', 'discounts', 'simulator', 'reviews']) $(name + '-panel').hidden = name !== view;
-    document.querySelectorAll('[data-admin-view]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
-    window.FarmerFinance.show(view);
-    window.FarmerDiscounts.show(view);
-    window.FarmerSimulator.show(view);
-    window.FarmerReviewsAdmin.show(view);
-  }));
+  function showAdminView(view){
+    if(locked()||!window.FarmerFinance.canLeave()||!window.FarmerDiscounts.canLeave()||!window.FarmerSms.canLeave())return false;
+    for(const name of ['operations','sms','finance','discounts','simulator','reviews'])$(name+'-panel').hidden=name!==view;
+    document.querySelectorAll('[data-admin-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.adminView===view)));
+    window.FarmerFinance.show(view);window.FarmerDiscounts.show(view);window.FarmerSimulator.show(view);window.FarmerReviewsAdmin.show(view);void window.FarmerSms.show(view);if(view==='operations'&&api.hasSession())void window.FarmerSms.marks(state.orders);return true;
+  }
+  window.FarmerSms.init({
+    changed:()=>{renderSelection();void window.FarmerSms.marks(state.orders);},
+    pickShipped:()=>{if(showAdminView('operations')){$('status-filter').value='shipped';state.offset=0;void load();}},
+    retry:async(id,orderNumber)=>{try{const result=await api.admin('farmer_admin_order_list',{p_status:'',p_search:orderNumber,p_offset:0,p_kind:''});const o=result.orders.find(o=>o.id===id);if(!o)throw Error('주문을 찾을 수 없습니다.');if(showAdminView('sms'))void window.FarmerSms.prepare([o]);}catch(e){message('sms-message',e.message,true);}}
+  });
+  $('sms-selected').addEventListener('click',()=>{const orders=selectedOrders();if(orders.length&&showAdminView('sms'))void window.FarmerSms.prepare(orders);});
+  document.querySelectorAll('[data-admin-view]').forEach(button=>button.addEventListener('click',()=>showAdminView(button.dataset.adminView)));
   if (!api?.ready()) {
     message("login-message", "관리 시스템 연결을 준비하고 있습니다.", true);
     $("login-button").disabled = true;
