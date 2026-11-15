@@ -3,9 +3,10 @@
  'use strict';
  const ns='http://www.w3.org/2000/svg';
  const palettes=[
-  ['#684531','#839e62','#536077',0,'glasses'],['#292f37','#6d8f9a','#4f4967',1,'tie'],['#724454','#a97595','#635a68',2,'glasses'],['#454439','#9d774b','#534f42',3,'hat'],['#51352f','#b87567','#6a694c',4,'scarf'],['#333d36','#f0e7cd','#6d8791',5,'glasses'],['#66533d','#6e8d65','#555d72',6,'cap'],['#554236','#b9935c','#57534d',7,'glasses'],['#403234','#a782a1','#596865',8,'scarf'],['#6c4c30','#81a897','#4c6470',9,'hat'],['#553b32','#c07a82','#626c55',4,'apron'],['#2f4043','#9baf7e','#685d80',2,'headband'],['#784b36','#bf925a','#496c71',0,'glasses'],['#453330','#a083b9','#53617b',1,'bow'],['#5c3932','#e1af60','#6c6481',8,'bow'],['#333d3e','#6f9eaf','#725e69',9,'cap'],['#77746a','#9a9672','#4c5e62',3,'glasses'],['#37343c','#b67b62','#575e76',7,'glasses'],['#4c3436','#9c7da7','#4c7775',5,'glasses'],['#4d4b3b','#b1a356','#556c67',6,'cap'],['#5e4935','#7396ae','#595a73',0,'hat'],['#3b3d3a','#b17e70','#6f7052',3,'cap'],['#6d443c','#9eae72','#67647b',9,'headband'],['#4c3439','#a98cba','#5d7470',1,'hat'],['#774631','#7c9d80','#766174',8,'bow'],['#3d3b43','#c39c68','#547e80',2,'scarf'],['#605144','#7e9e9a','#65576a',6,'glasses'],['#4b4136','#9d8b5d','#587675',3,'apron'],['#3b3432','#8c879f','#6f7955',5,'scarf'],['#614a39','#6a9ca1','#78705e',9,'cap'],['#4d4d42','#bba061','#536f7c',7,'headband'],['#413e4b','#8191a5','#655773',1,'glasses']
+  ['#684531','#839e62','#536077',0,'glasses'],['#292f37','#6d8f9a','#4f4967',1,'tie'],['#724454','#a97595','#635a68',2,'glasses'],['#454439','#9d774b','#534f42',3,'hat'],['#51352f','#b87567','#6a694c',4,'scarf'],['#333d36','#f0e7cd','#6d8791',5,'glasses'],['#66533d','#6e8d65','#555d72',6,'cap'],['#554236','#b9935c','#57534d',7,'glasses'],['#403234','#a782a1','#596865',8,'scarf'],['#6c4c30','#81a897','#4c6470',9,'hat'],['#553b32','#c07a82','#626c55',4,'apron'],['#2f4043','#9baf7e','#685d80',2,'headband'],['#784b36','#bf925a','#496c71',0,'glasses'],['#453330','#a083b9','#53617b',1,'cap','#649bc4'],['#5c3932','#e1af60','#6c6481',8,'bow','#d7809d'],['#333d3e','#6f9eaf','#725e69',9,'bow','#bf8bca'],['#77746a','#9a9672','#4c5e62',3,'glasses'],['#37343c','#b67b62','#575e76',7,'glasses'],['#4c3436','#9c7da7','#4c7775',5,'glasses'],['#4d4b3b','#b1a356','#556c67',6,'cap'],['#5e4935','#7396ae','#595a73',0,'hat'],['#3b3d3a','#b17e70','#6f7052',3,'cap'],['#6d443c','#9eae72','#67647b',9,'headband'],['#4c3439','#a98cba','#5d7470',1,'hat'],['#774631','#7c9d80','#766174',8,'bow'],['#3d3b43','#c39c68','#547e80',2,'scarf'],['#605144','#7e9e9a','#65576a',6,'glasses'],['#4b4136','#9d8b5d','#587675',3,'apron'],['#3b3432','#8c879f','#6f7955',5,'scarf'],['#614a39','#6a9ca1','#78705e',9,'cap'],['#4d4d42','#bba061','#536f7c',7,'headband'],['#413e4b','#8191a5','#655773',1,'glasses']
  ];
  palettes.push(['#583f3a','#9a718a','#657f70',4,'headband'],['#343e42','#ad955e','#575c7b',0,'cap']);
+ palettes.push(['#4a383f','#799e91','#76607e',8,'scarf']);
  function svgNode(tag,attrs){const n=document.createElementNS(ns,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);return n;}
  function prop(kind){
   const s=svgNode('svg',{viewBox:'0 0 40 32','aria-hidden':'true',class:'pixel-prop','shape-rendering':'crispEdges'});
@@ -27,7 +28,7 @@
   return s;
  }
  function avatar(index,{child=false}={}){
-  const [hair,shirt,pants,style,acc]=palettes[index%palettes.length];
+  const [hair,shirt,pants,style,acc,accent]=palettes[index%palettes.length];
   const s=svgNode('svg',{viewBox:'0 0 32 42',class:'pixel-person','aria-hidden':'true','shape-rendering':'crispEdges','data-avatar':index});
   const r=(x,y,w,h,c)=>s.append(svgNode('rect',{x,y,width:w,height:h,fill:c}));
   const ink='#493c35',skin=['#dfb48c','#e4bd99','#d6a481'][index%3],shade='#bf8c6f';
@@ -43,10 +44,10 @@
   r(12,13,2,2,ink);r(20,13,2,2,ink);r(15,17,4,1,ink);r(10,16,2,1,'#cd8b82');r(23,16,2,1,'#cd8b82');
   r(13,24,3,3,'#ffffff55');r(19,24,3,3,'#ffffff55');
   if(acc==='glasses'){r(10,12,7,1,ink);r(18,12,7,1,ink);r(10,15,7,1,ink);r(18,15,7,1,ink);r(10,13,1,2,ink);r(16,13,3,1,ink);r(24,13,1,2,ink);}
-  if(acc==='cap'){r(9,3,16,4,shirt);r(7,7,21,2,shirt);r(11,4,4,2,goldColor(index));}
+  if(acc==='cap'){r(9,3,16,4,accent||shirt);r(7,7,21,2,accent||shirt);r(11,4,4,2,goldColor(index));}
   if(acc==='hat'){r(10,2,14,5,'#c3a565');r(5,7,24,3,'#ddbd78');r(10,6,14,2,'#93734d');}
   if(acc==='scarf'){r(11,21,13,3,'#e1bc74');r(21,23,3,6,'#e1bc74');}
-  if(acc==='bow'){r(7,5,4,4,'#e2b178');r(14,5,4,4,'#e2b178');r(11,6,3,2,'#b78074');}
+  if(acc==='bow'){if(accent){r(6,2,6,5,accent);r(16,2,6,5,accent);r(9,7,3,3,accent);r(16,7,3,3,accent);r(12,4,4,4,'#a76082');}else{r(7,5,4,4,'#e2b178');r(14,5,4,4,'#e2b178');r(11,6,3,2,'#b78074');}}
   if(acc==='tie'){r(15,22,4,2,'#d0b980');r(16,24,2,6,'#d0b980');}
   if(acc==='apron'){r(12,25,11,8,'#e1c9a0');r(15,22,5,5,'#e1c9a0');r(15,28,5,3,'#b99774');}
   if(acc==='headband'){r(8,8,18,2,'#d9bd7e');r(24,8,3,7,'#d9bd7e');}

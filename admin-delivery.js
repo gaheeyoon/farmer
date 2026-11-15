@@ -6,6 +6,7 @@
  const input=k=>$('edit-delivery-'+k),form=$('delivery-edit-form');
  let order=null,editing=false,dirty=false,busy=false,pending=null,epoch=0,onSaved=async()=>{};
  const pickup=o=>o?.pickup_requested===true||String(o?.product_id||'').endsWith('-pickup')||o?.fulfillment_method==='pickup';
+ const formatPhone=v=>{const d=String(v).replace(/\D/g,'').slice(0,12);return d.length===12?d.slice(0,4)+'-'+d.slice(4,8)+'-'+d.slice(8):C.formatPhone(d);};
  const frozen=()=>busy||!!pending;
  const tell=(text,error=false)=>{$('delivery-edit-status').textContent=text;$('delivery-edit-status').classList.toggle('error',error);};
  function sync(){
@@ -20,7 +21,7 @@
  function start(){
   if(!order||frozen()||order.awaiting_address&&order.status!=='confirmed')return;
   editing=true;dirty=false;for(const k of keys)input(k).value=String(order[k]||'');
-  input('recipient_name').value=order.recipient_name||order.customer_name||'';input('recipient_phone').value=C.formatPhone(order.recipient_phone||order.phone||'');
+  input('recipient_name').value=order.recipient_name||order.customer_name||'';input('recipient_phone').value=formatPhone(order.recipient_phone||order.phone||'');
   P.mount($('edit-delivery-tracking_number'),order,'edit-parcel');
   const isPickup=pickup(order);$('delivery-edit-address-fields').hidden=isPickup;$('delivery-edit-tracking-fields').hidden=isPickup;
   for(const k of ['postal_code','address'])input(k).required=!isPickup;
@@ -33,7 +34,7 @@
  async function save(e){
   e.preventDefault();if(busy||!order)return;
   if(!pending){
-   C.phoneValid(input('recipient_phone'));input('recipient_name').setCustomValidity(input('recipient_name').value.trim()?'':'받는 분 성함을 입력해 주세요.');
+   input('recipient_phone').setCustomValidity(/^0\d{8,11}$/.test(input('recipient_phone').value.replace(/\D/g,''))?'':'연락처를 확인해 주세요.');input('recipient_name').setCustomValidity(input('recipient_name').value.trim()?'':'받는 분 성함을 입력해 주세요.');
    input('address').setCustomValidity(pickup(order)||input('address').value.trim().length>=5?'':'배송 주소를 확인해 주세요.');
    if(!form.reportValidity())return;
    let tracking;try{tracking=pickup(order)?'':P.encoded($('edit-delivery-tracking_number'));}catch(error){tell(error.message,true);return;}
@@ -51,6 +52,7 @@
  function init(callback){
   onSaved=callback;$('edit-delivery-open').addEventListener('click',start);$('edit-delivery-cancel').addEventListener('click',cancel);form.addEventListener('submit',save);
   form.addEventListener('input',e=>{dirty=true;e.target.setCustomValidity?.('');});
+  input('recipient_phone').addEventListener('blur',()=>{input('recipient_phone').value=formatPhone(input('recipient_phone').value);});
   $('order-dialog').addEventListener('cancel',e=>{if(!canClose())e.preventDefault();});$('order-dialog').addEventListener('close',clear);
   $('edit-delivery-search').addEventListener('click',async()=>{
    if(frozen())return;const ticket=epoch;$('delivery-edit-search-panel').hidden=false;$('edit-delivery-search').disabled=true;$('delivery-edit-search-status').textContent='주소 검색을 불러오고 있습니다.';

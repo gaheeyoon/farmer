@@ -31,6 +31,7 @@ window.FARMER_TMI = {
    {task:'고구마 심기 조언',people:[{id:'igok',name:'이곡서점 작은 사장님',avatar:28,prop:'book'}]},
    {task:'고구마 순',people:[{id:'lee',name:'이용복 선생님',avatar:9,prop:'sprout'}]},
    {task:'고구마 심기',people:[{id:'mom',name:'엄마',avatar:10,prop:'shovel'},{id:'hyojin',name:'효진 선생님',detail:'낙원요가',avatar:11,prop:'sprout'},{id:'gori',name:'고리 님',detail:'토토스튜디오',avatar:12,prop:'shovel'},{id:'park-hyangseon',name:'박향선',detail:'도래푸드',avatar:32,prop:'sprout'},{id:'kim-minseok',name:'김민석',detail:'도래푸드',avatar:33,prop:'shovel'}]},
+   {task:'고구마 심기 조언 (복토삽 대여)',people:[{id:'myeong-seonok',name:'명선옥 선생님',avatar:34,prop:'shovel'}]},
    {task:'세 명의 아이들도 함께',note:'고구마 심기',postscript:'P.S. 고사리손조차 절실했던 시기',people:[{id:'yunseo',name:'홍윤서',avatar:13,child:true,prop:'sprout'},{id:'seoyun',name:'홍서윤',avatar:14,child:true,prop:'heart'},{id:'seowoo',name:'홍서우',avatar:15,child:true,prop:'sprout'}]},
    {task:'지하수와 전기를 빌려주신',people:[{id:'water',name:'OOO 선생님',avatar:16,prop:'water'}]},
    {task:'매일을 배운 두 사람',note:'시작은 어쩌다, 농사는 진심.',people:[{id:'sehwan',name:'홍세환',detail:'음악하는',avatar:17,prop:'music'},{id:'gahee',name:'윤가희',detail:'개발하는',avatar:18,prop:'laptop'}]}
