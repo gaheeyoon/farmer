@@ -54,8 +54,11 @@
   try{const result=await api.admin('farmer_admin_export_orders',filters);if(ticket!==epoch)return;
    if(!Array.isArray(result?.orders)||result.orders.length!==result.total)throw Error('전체 주문을 확인하지 못했습니다. 다시 시도해 주세요.');
    if(!result.total){tell('조건에 맞는 주문이 없습니다.');return;}
-   const rows=window.FarmerParcels.exportRows(result.orders);
-   const blob=window.FarmerXlsx.build(kind==='courier'?courierColumns:columns,rows),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`고구맙습니다_${kind==='courier'?'택배사용':'주문내역'}_${dt(result.exported_at||new Date()).replace(/[^0-9]/g,'')}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell(`${result.total}건의 주문을 ${rows.length}상자 · ${rows.length}행으로 내려받았습니다. 연락처·주소가 포함되어 있으니 안전하게 보관해 주세요.`);
+   const orders=kind==='courier'?result.orders.filter(o=>o.pickup_requested!==true&&o.fulfillment_method!=='pickup'&&!String(o.product_id||'').endsWith('-pickup')):result.orders;
+   const excluded=result.total-orders.length;
+   if(!orders.length){tell(`택배로 발송할 주문이 없습니다. 방문·현장 수령 ${excluded}건은 제외했습니다.`);return;}
+   const rows=window.FarmerParcels.exportRows(orders);
+   const blob=window.FarmerXlsx.build(kind==='courier'?courierColumns:columns,rows),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`고구맙습니다_${kind==='courier'?'택배사용':'주문내역'}_${dt(result.exported_at||new Date()).replace(/[^0-9]/g,'')}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell(`${orders.length}건의 주문을 ${rows.length}상자 · ${rows.length}행으로 내려받았습니다.${excluded?' 방문·현장 수령 '+excluded+'건은 제외했습니다.':''} 연락처·주소가 포함되어 있으니 안전하게 보관해 주세요.`);
   }catch(e){if(ticket===epoch)tell(e.message,true);}finally{if(ticket===epoch){exporting=false;ctx.changed();sync();}}
  }
  function init(options){ctx=options;$('archive-selected').addEventListener('click',()=>archive());$('archive-order').addEventListener('click',()=>archive(true));for(const kind of ['orders','courier'])$('export-'+kind).addEventListener('click',()=>download(kind));$('order-dialog').addEventListener('cancel',e=>{if(locked())e.preventDefault();});$('order-dialog').addEventListener('close',()=>{current=null;});window.addEventListener('beforeunload',e=>{if(pending||busy){e.preventDefault();e.returnValue='';}});sync();}
