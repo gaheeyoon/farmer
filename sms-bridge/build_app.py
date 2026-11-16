@@ -17,7 +17,7 @@ app=stage/'고구맙습니다 문자발송.app'
 subprocess.run(['/usr/bin/osacompile','-o',str(app),str(src/'launcher.applescript')],check=True)
 shutil.copy2(src/'bridge.py',app/'Contents/Resources/bridge.py')
 p=app/'Contents/Info.plist'
-data=plistlib.loads(p.read_bytes());data.update({'CFBundleIdentifier':'com.gogumap.sms','CFBundleName':'고구맙습니다 문자발송','CFBundleShortVersionString':'1.0.0','NSAppleEventsUsageDescription':'관리자에서 요청한 배송 안내를 Mac 메시지 앱에 전달합니다.','CFBundleURLTypes':[{'CFBundleURLName':'고구맙습니다 문자발송','CFBundleURLSchemes':['gogumap-sms']}],'LSUIElement':True});p.write_bytes(plistlib.dumps(data))
+data=plistlib.loads(p.read_bytes());data.update({'CFBundleIdentifier':'com.gogumap.sms','CFBundleName':'고구맙습니다 문자발송','CFBundleShortVersionString':'1.0.1','NSAppleEventsUsageDescription':'관리자에서 요청한 배송 안내를 Mac 메시지 앱에 전달합니다.','CFBundleURLTypes':[{'CFBundleURLName':'고구맙습니다 문자발송','CFBundleURLSchemes':['gogumap-sms']}],'LSUIElement':True});p.write_bytes(plistlib.dumps(data))
 subprocess.run(['/usr/bin/codesign','--force','--deep','--sign','-',str(app)],check=True,capture_output=True)
 installer=stage/'처음 설치.command'
 installer.write_text('''#!/bin/bash

@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import uuid
 
 spec=importlib.util.spec_from_file_location('bridge',Path(__file__).with_name('bridge.py'))
@@ -26,6 +26,18 @@ class BridgeTests(unittest.TestCase):
   sender=Mock(side_effect=subprocess.TimeoutExpired('osascript',45));api=Mock();b.dispatch(self.job,self.config,self.journal,sender,api);self.assertEqual(api.call_args.args[2]['state'],'uncertain')
  def test_failure(self):
   api=Mock();b.dispatch(self.job,self.config,self.journal,Mock(side_effect=RuntimeError('not permitted')),api);self.assertEqual(api.call_args.args[2]['state'],'failed')
+ def test_safe_number_is_not_converted_or_truncated(self):
+  with patch.object(b.subprocess,'run',return_value=Mock(returncode=0)) as run:
+   b.send_message('050212345678','기존 안내 그대로, 송장 두 개\n둘째 줄')
+   self.assertEqual(run.call_args.args[0][-2:],["050212345678",'기존 안내 그대로, 송장 두 개\n둘째 줄'])
+ def test_mobile_destination_unchanged(self):
+  with patch.object(b.subprocess,'run',return_value=Mock(returncode=0)) as run:
+   b.send_message('01012345678','테스트 본문');self.assertEqual(run.call_args.args[0][-2],'+821012345678')
+ def test_malformed_safe_number_never_dispatches(self):
+  with patch.object(b.subprocess,'run') as run:
+   for phone in ['05021234567','0502123456789','050312345678','123','0502-abcd-efgh']:
+    with self.assertRaises(ValueError):b.send_message(phone,'본문')
+   run.assert_not_called()
  def test_config_private_and_links(self):
   b.write_config(self.config,self.root);self.assertEqual(b.load_config(self.root),self.config);self.assertEqual((self.root/'connection.json').stat().st_mode&0o777,0o600)
   self.assertEqual(b.parse_link('gogumap-sms://pair?device='+self.config['id']+'&secret='+self.config['secret']),self.config)

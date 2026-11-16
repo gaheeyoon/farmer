@@ -98,9 +98,10 @@ class Journal:
 
 
 def send_message(phone, text):
-    if not re.fullmatch(r'01\d{8,9}', phone) or not text or len(text) > 10000:
+    if not re.fullmatch(r'(?:01\d{8,9}|0502\d{8})', phone) or not text or len(text) > 10000:
         raise ValueError('잘못된 문자 요청입니다.')
-    result = subprocess.run(['/usr/bin/osascript', '-e', SCRIPT, '+82' + phone[1:], text], capture_output=True, text=True, timeout=45)
+    destination = phone if phone.startswith('0502') else '+82' + phone[1:]
+    result = subprocess.run(['/usr/bin/osascript', '-e', SCRIPT, destination, text], capture_output=True, text=True, timeout=45)
     if result.returncode:
         if '-1743' in result.stderr or 'not authorized' in result.stderr.lower():
             raise RuntimeError('Mac 시스템 설정의 개인정보 보호 및 보안 > 자동화에서 메시지 제어를 허용해 주세요.')
